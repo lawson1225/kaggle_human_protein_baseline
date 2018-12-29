@@ -156,7 +156,6 @@ def main():
     criterion = nn.BCEWithLogitsLoss().cuda()
     #criterion = FocalLoss().cuda()
     #criterion = F1Loss().cuda()
-    start_epoch = 0
     best_loss = 999
     best_f1 = 0
     best_results = [np.inf,0]
@@ -181,12 +180,15 @@ def main():
         log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
         checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
         model.load_state_dict(torch.load(checkpoint_path, map_location=lambda storage, loc: storage))
+        start_epoch = int(config.initial_checkpoint) + 1
+    else:
+        start_epoch = 0
 
     scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
     start = timer()
 
     #train
-    for epoch in range(0,config.epochs):
+    for epoch in range(start_epoch,config.epochs):
         scheduler.step(epoch)
         # train
         lr = get_learning_rate(optimizer)
