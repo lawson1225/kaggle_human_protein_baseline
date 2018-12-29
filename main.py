@@ -13,7 +13,7 @@ from data import HumanDataset
 from tqdm import tqdm 
 from config import config
 from datetime import datetime
-from models.model import*
+from kaggle_human_protein_baseline.model import*
 from torch import nn,optim
 from collections import OrderedDict
 from torch.autograd import Variable

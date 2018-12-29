@@ -1,0 +1,8 @@
+README.md
+setup.py
+kaggle_human_protein_baseline/model.py
+kaggle_human_protein_baseline.egg-info/PKG-INFO
+kaggle_human_protein_baseline.egg-info/SOURCES.txt
+kaggle_human_protein_baseline.egg-info/dependency_links.txt
+kaggle_human_protein_baseline.egg-info/requires.txt
+kaggle_human_protein_baseline.egg-info/top_level.txt
