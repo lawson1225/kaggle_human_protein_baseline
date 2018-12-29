@@ -161,7 +161,7 @@ def main():
     best_f1 = 0
     best_results = [np.inf,0]
     val_metrics = [np.inf,0]
-    resume = False
+
     all_files = pd.read_csv("../Human_Protein_Atlas/input/train.csv")
     #print(all_files)
     test_files = pd.read_csv("../Human_Protein_Atlas/input/sample_submission.csv")
@@ -176,6 +176,11 @@ def main():
 
     test_gen = HumanDataset(test_files,config.test_data,augument=False,mode="test")
     test_loader = DataLoader(test_gen,1,shuffle=False,pin_memory=True,num_workers=4)
+
+    if config.resume:
+        log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
+        checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
+        model.load_state_dict(torch.load(checkpoint_path, map_location=lambda storage, loc: storage))
 
     scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
     start = timer()
@@ -224,19 +229,19 @@ def main():
                 'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1]}
 
         for tag, value in info.items():
-            tflogger.scalar_summary(tag, value, iter)
+            tflogger.scalar_summary(tag, value, epoch)
 
         # 2. Log values and gradients of the parameters (histogram summary)
         for tag, value in model.named_parameters():
             tag = tag.replace('.', '/')
-            tflogger.histo_summary(tag, value.data.cpu().numpy(), iter)
-            tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), iter)
+            tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
+            tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
 
         # 3. Log training images (image summary)
         info = {'images': input.view(-1, 512, 512)[:10].cpu().numpy()}
 
         for tag, images in info.items():
-            tflogger.image_summary(tag, images, iter)
+            tflogger.image_summary(tag, images, epoch)
         # -------------------------------------
         # end tflogger
 

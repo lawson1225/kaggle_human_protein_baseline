@@ -1,6 +1,6 @@
 class DefaultConfigs(object):
     train_data = "../Human_Protein_Atlas/input/train/" # where is your train data
-    test_data = "../Human_Protein_Atlas/input//test/"   # your test data
+    test_data = "../Human_Protein_Atlas/input/test/"   # your test data
     weights = "./checkpoints/"
     best_models = "./checkpoints/best_models/"
     submit = "./submit/"
@@ -10,7 +10,9 @@ class DefaultConfigs(object):
     img_height = 512
     channels = 4
     lr = 0.03
-    batch_size = 2
+    batch_size = 40
     epochs = 50
+    resume = True
+    initial_checkpoint = '0'
 
 config = DefaultConfigs()
