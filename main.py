@@ -42,7 +42,7 @@ log.write('mode     iter     epoch    |         loss   f1_macro        |        
 log.write('-------------------------------------------------------------------------------------------------------------------------------\n')
 
 # tflogger
-tflogger = TFLogger(os.path.join('Result','TFlogs', config.model_name))
+tflogger = TFLogger(os.path.join('results','TFlogs', config.model_name))
 
 def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,start):
     losses = AverageMeter()
