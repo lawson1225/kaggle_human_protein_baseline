@@ -27,7 +27,7 @@ random.seed(2050)
 np.random.seed(2050)
 torch.manual_seed(2050)
 torch.cuda.manual_seed_all(2050)
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 torch.backends.cudnn.benchmark = True
 warnings.filterwarnings('ignore')
 
@@ -41,6 +41,9 @@ log.write('                           |------------ Train -------------|--------
 log.write('mode     iter     epoch    |         loss   f1_macro        |         loss   f1_macro       |         loss   f1_macro       | time       |\n')
 log.write('-------------------------------------------------------------------------------------------------------------------------------\n')
 
+# tflogger
+tflogger = TFLogger(os.path.join('Result','TFlogs', config.model_name))
+
 def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,start):
     losses = AverageMeter()
     f1 = AverageMeter()
@@ -53,13 +56,13 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,s
         loss = criterion(output,target)
         losses.update(loss.item(),images.size(0))
         
-        f1_batch = f1_score(target,output.sigmoid().cpu() > 0.15,average='macro')
+        f1_batch = f1_score(target.cpu(),output.sigmoid().cpu() > 0.15,average='macro')
         f1.update(f1_batch,images.size(0))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         print('\r',end='',flush=True)
-        message = '%s %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
+        message = '%s %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f           |         %s      %s            | %s' % (\
                 "train", i/len(train_loader) + epoch, epoch,
                 losses.avg, f1.avg, 
                 valid_loss[0], valid_loss[1], 
@@ -88,7 +91,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
             output = model(images_var)
             loss = criterion(output,target)
             losses.update(loss.item(),images_var.size(0))
-            f1_batch = f1_score(target,output.sigmoid().cpu().data.numpy() > 0.15,average='macro')
+            f1_batch = f1_score(target.cpu(),output.sigmoid().cpu().data.numpy() > 0.15,average='macro')
             f1.update(f1_batch,images_var.size(0))
             print('\r',end='',flush=True)
             message = '%s   %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
@@ -159,9 +162,9 @@ def main():
     best_results = [np.inf,0]
     val_metrics = [np.inf,0]
     resume = False
-    all_files = pd.read_csv("/mfs/human/train.csv")
+    all_files = pd.read_csv("../Human_Protein_Atlas/input/train.csv")
     #print(all_files)
-    test_files = pd.read_csv("/mfs/human/sample_submission.csv")
+    test_files = pd.read_csv("../Human_Protein_Atlas/input/sample_submission.csv")
     train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
 
     # load dataset
@@ -176,7 +179,7 @@ def main():
 
     scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
     start = timer()
-    """
+
     #train
     for epoch in range(0,config.epochs):
         scheduler.step(epoch)
@@ -211,7 +214,32 @@ def main():
             )
         log.write("\n")
         time.sleep(0.01)
-    """
+
+        # ================================================================== #
+        #                        Tensorboard Logging                         #
+        # ================================================================== #
+
+        # 1. Log scalar values (scalar summary)
+        info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
+                'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1]}
+
+        for tag, value in info.items():
+            tflogger.scalar_summary(tag, value, iter)
+
+        # 2. Log values and gradients of the parameters (histogram summary)
+        for tag, value in model.named_parameters():
+            tag = tag.replace('.', '/')
+            tflogger.histo_summary(tag, value.data.cpu().numpy(), iter)
+            tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), iter)
+
+        # 3. Log training images (image summary)
+        info = {'images': input.view(-1, 512, 512)[:10].cpu().numpy()}
+
+        for tag, images in info.items():
+            tflogger.image_summary(tag, images, iter)
+        # -------------------------------------
+        # end tflogger
+
     best_model = torch.load("%s/%s_fold_%s_model_best_loss.pth.tar"%(config.best_models,config.model_name,str(fold)))
     #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
     model.load_state_dict(best_model["state_dict"])
