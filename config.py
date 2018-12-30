@@ -18,7 +18,6 @@ class DefaultConfigs(object):
     epochs = 50
     resume = True
     initial_checkpoint = '0'
-    start_epoch= 5
     gpus = "0,1,2,3"
 
 config = DefaultConfigs()

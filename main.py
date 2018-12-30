@@ -1,54 +1,50 @@
-import os 
-import time 
-import json 
-import torch 
-import random 
-import warnings
-import torchvision
-import numpy as np 
-import pandas as pd 
-
-from utils import *
+from common import *
+# import os
+# import time
+# import json
+# import torch
+# import random
+# import warnings
+# import torchvision
+# import numpy as np
+# import pandas as pd
+#
+# from utils import *
 from data import HumanDataset
-from tqdm import tqdm
-from datetime import datetime
 from kaggle_human_protein_baseline.model import*
-from torch import nn,optim
-from collections import OrderedDict
-from torch.autograd import Variable
-from torch.utils.data import DataLoader
-from torch.optim import lr_scheduler
-from sklearn.model_selection import train_test_split
-from timeit import default_timer as timer
-from sklearn.metrics import f1_score
+# from tqdm import tqdm
+# from datetime import datetime
+
+# from torch import nn,optim
+# from collections import OrderedDict
+# from torch.autograd import Variable
+# from torch.utils.data import DataLoader
+
+# from timeit import default_timer as timer
+# from sklearn.metrics import f1_score
 
 import argparse
 #-----------------------------------------------
 # Arg parser
 # changes
 parser = argparse.ArgumentParser()
-parser.add_argument("--START_EPOCH", help="START OF THE EPOCH",
-                    type=int)
 parser.add_argument("--MODEL_NAME", help="NAME OF OUTPUT FOLDER",
                     type=str)
 parser.add_argument("--INITIAL_CHECKPOINT", help="CHECK POINT",
                     type=str)
 parser.add_argument("--RESUME", help="RESUME RUN",
                     type=bool)
+parser.add_argument("--BATCH_SIZE", help="BATCH SIZE TIMES NUMBER OF GPUS",
+                    type=int)
 args = parser.parse_args()
 
 config.resume = args.RESUME
-config.start_epoch = args.START_EPOCH
 config.model_name = args.MODEL_NAME
 config.initial_checkpoint = args.INITIAL_CHECKPOINT
+config.batch_size = args.BATCH_SIZE
 
 # 1. set random seed
-random.seed(2050)
-np.random.seed(2050)
-torch.manual_seed(2050)
-torch.cuda.manual_seed_all(2050)
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
-torch.backends.cudnn.benchmark = True
 warnings.filterwarnings('ignore')
 
 if not os.path.exists(config.logs):
@@ -72,7 +68,8 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,s
         images = images.cuda(non_blocking=True)
         target = torch.from_numpy(np.array(target)).float().cuda(non_blocking=True)
         # compute output
-        output = model(images)
+        output = data_parallel(model,images)
+        # output = model(images)
         loss = criterion(output,target)
         losses.update(loss.item(),images.size(0))
         
@@ -108,7 +105,8 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
             target = torch.from_numpy(np.array(target)).float().cuda(non_blocking=True)
             #image_var = Variable(images).cuda()
             #target = Variable(torch.from_numpy(np.array(target)).long()).cuda()
-            output = model(images_var)
+            # output = model(images_var)
+            output = data_parallel(model, images_var)
             loss = criterion(output,target)
             losses.update(loss.item(),images_var.size(0))
             f1_batch = f1_score(target.cpu(),output.sigmoid().cpu().data.numpy() > 0.15,average='macro')
@@ -201,7 +199,7 @@ def main():
         checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
         loaded_model = torch.load(checkpoint_path)
         model.load_state_dict(loaded_model["state_dict"])
-        start_epoch = config.start_epoch
+        start_epoch = loaded_model["epoch"]
     else:
         start_epoch = 0
 
