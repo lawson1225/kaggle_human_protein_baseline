@@ -271,8 +271,7 @@ def main():
         test_gen = HumanDataset(test_files,config.test_data,augument=False,mode="test")
         test_loader = DataLoader(test_gen,1,shuffle=False,pin_memory=True,num_workers=4)
 
-        checkpoint_path = os.path.join(config.best_models,
-                                       '%{0}_fold_%{1}_model_best_loss.pth.tar'.format(config.model_name, fold))
+        checkpoint_path = os.path.join(config.best_models,'{0}_fold_{1}_model_best_loss.pth.tar'.format(config.model_name, fold))
         best_model = torch.load(checkpoint_path)
         #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
         model.load_state_dict(best_model["state_dict"])
