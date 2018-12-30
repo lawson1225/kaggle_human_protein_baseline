@@ -10,8 +10,7 @@ import pandas as pd
 
 from utils import *
 from data import HumanDataset
-from tqdm import tqdm 
-from config import config
+from tqdm import tqdm
 from datetime import datetime
 from kaggle_human_protein_baseline.model import*
 from torch import nn,optim
