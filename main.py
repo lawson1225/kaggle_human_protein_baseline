@@ -196,7 +196,7 @@ def main():
     if config.resume:
         log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
         checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
-        loaded_model = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+        loaded_model = torch.load(checkpoint_path)
         model.load_state_dict(loaded_model["state_dict"])
         start_epoch = config.start_epoch
     else:
