@@ -144,8 +144,8 @@ def main():
         os.makedirs(config.weights + config.model_name + os.sep +str(fold))
     if not os.path.exists(config.best_models):
         os.mkdir(config.best_models)
-    if not os.path.exists("./logs/"):
-        os.mkdir("./logs/")
+    if not os.path.exists(config.logs):
+        os.mkdir(config.logs)
     
     # 4.2 get model
     model = get_net()
@@ -238,12 +238,6 @@ def main():
             tag = tag.replace('.', '/')
             tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
             tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
-
-        # 3. Log training images (image summary)
-        info = {'images': input.view(-1, 512, 512)[:10].cpu().numpy()}
-
-        for tag, images in info.items():
-            tflogger.image_summary(tag, images, epoch)
         # -------------------------------------
         # end tflogger
 
