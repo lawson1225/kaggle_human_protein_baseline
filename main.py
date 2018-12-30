@@ -31,11 +31,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 torch.backends.cudnn.benchmark = True
 warnings.filterwarnings('ignore')
 
-if not os.path.exists("./logs/"):
-    os.mkdir("./logs/")
+if not os.path.exists(config.logs):
+    os.mkdir(config.logs)
 
 log = Logger()
-log.open("logs/%s_log_train.txt"%config.model_name,mode="a")
+log.open("%s/%s_log_train.txt"%config.logs,config.model_name,mode="a")
 log.write("\n----------------------------------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 log.write('                           |------------ Train -------------|----------- Valid -------------|----------Best Results---------|------------|\n')
 log.write('mode     iter     epoch    |         loss   f1_macro        |         loss   f1_macro       |         loss   f1_macro       | time       |\n')
