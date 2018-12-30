@@ -27,7 +27,7 @@ random.seed(2050)
 np.random.seed(2050)
 torch.manual_seed(2050)
 torch.cuda.manual_seed_all(2050)
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
 torch.backends.cudnn.benchmark = True
 warnings.filterwarnings('ignore')
 
@@ -181,7 +181,7 @@ def main():
         checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
         loaded_model = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
         model.load_state_dict(loaded_model["state_dict"])
-        start_epoch = int(config.initial_checkpoint) + 1
+        start_epoch = config.start_epoch
     else:
         start_epoch = 0
 
