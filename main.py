@@ -22,6 +22,24 @@ from torch.optim import lr_scheduler
 from sklearn.model_selection import train_test_split
 from timeit import default_timer as timer
 from sklearn.metrics import f1_score
+
+import argparse
+#-----------------------------------------------
+# Arg parser
+# changes
+parser = argparse.ArgumentParser()
+parser.add_argument("--START_EPOCH", help="START OF THE EPOCH",
+                    type=int)
+parser.add_argument("--MODEL_NAME", help="NAME OF OUTPUT FOLDER",
+                    type=str)
+parser.add_argument("--INITIAL_CHECKPOINT", help="CHECK POINT",
+                    type=str)
+args = parser.parse_args()
+
+config.start_epoch = args.START_EPOCH
+config.model_name = args.MODEL_NAME
+config.initial_checkpoint = args.INITIAL_CHECKPOINT
+
 # 1. set random seed
 random.seed(2050)
 np.random.seed(2050)

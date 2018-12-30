@@ -19,7 +19,8 @@ from io import BytesIO  # Python 3.x
 
 # save best model
 def save_checkpoint(state, is_best_loss,is_best_f1,fold):
-    filename = config.weights + config.model_name + os.sep +str(fold) + os.sep + "checkpoint.pth.tar"
+    filename = '{0}{1}/fold_{3}/{4}_checkpoint.pth.tar'.format(config.weights, config.model_name, str(fold), state['epoch'])
+    # filename = config.weights + config.model_name + os.sep +str(fold) + os.sep + "checkpoint.pth.tar"
     torch.save(state, filename)
     if is_best_loss:
         shutil.copyfile(filename,"%s/%s_fold_%s_model_best_loss.pth.tar"%(config.best_models,config.model_name,str(fold)))
