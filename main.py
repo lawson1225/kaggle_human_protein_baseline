@@ -178,9 +178,9 @@ def main():
     best_results = [np.inf,0]
     val_metrics = [np.inf,0]
 
-    all_files = pd.read_csv("../Human_Protein_Atlas/input/train.csv")
+    all_files = pd.read_csv("./input/train.csv")
     #print(all_files)
-    test_files = pd.read_csv("../Human_Protein_Atlas/input/sample_submission.csv")
+    test_files = pd.read_csv("./input/sample_submission.csv")
     train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
 
     # load dataset
