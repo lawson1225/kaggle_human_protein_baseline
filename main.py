@@ -35,12 +35,15 @@ parser.add_argument("--RESUME", help="RESUME RUN",
                     type=bool)
 parser.add_argument("--BATCH_SIZE", help="BATCH SIZE TIMES NUMBER OF GPUS",
                     type=int)
+parser.add_argument("--MODE", help="TRAIN OR TEST",
+                    type=str)
 args = parser.parse_args()
 
 config.resume = args.RESUME
 config.model_name = args.MODEL_NAME
 config.initial_checkpoint = args.INITIAL_CHECKPOINT
 config.batch_size = args.BATCH_SIZE
+config.mode = args.MODE
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
@@ -127,7 +130,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
 
 # 3. test model on public dataset and save the probability matrix
 def test(test_loader,model,folds):
-    sample_submission_df = pd.read_csv("/mfs/human/sample_submission.csv")
+    sample_submission_df = pd.read_csv("./input/sample_submission.csv")
     #3.1 confirm the model converted to cuda
     filenames,labels ,submissions= [],[],[]
     model.cuda()
@@ -149,10 +152,11 @@ def test(test_loader,model,folds):
         subrow = ' '.join(list([str(i) for i in np.nonzero(row)[0]]))
         submissions.append(subrow)
     sample_submission_df['Predicted'] = submissions
-    sample_submission_df.to_csv('./submit/%s_bestloss_submission.csv'%config.model_name, index=None)
+    sample_submission_df.to_csv('./results/submit/%s_bestloss_submission.csv'%config.model_name, index=None)
 
 # 4. main function
 def main():
+
     fold = 0
     # 4.1 mkdirs
     if not os.path.exists(config.submit):
@@ -163,105 +167,116 @@ def main():
         os.mkdir(config.best_models)
     if not os.path.exists(config.logs):
         os.mkdir(config.logs)
-    
+
     # 4.2 get model
     model = get_net()
     model.cuda()
 
-    # criterion
-    optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
-    criterion = nn.BCEWithLogitsLoss().cuda()
-    #criterion = FocalLoss().cuda()
-    #criterion = F1Loss().cuda()
-    best_loss = 999
-    best_f1 = 0
-    best_results = [np.inf,0]
-    val_metrics = [np.inf,0]
+    # -------------------------------------------------------
+    # training
+    # -------------------------------------------------------
+    if config.mode == 'train':
+        # criterion
+        optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
+        criterion = nn.BCEWithLogitsLoss().cuda()
+        #criterion = FocalLoss().cuda()
+        #criterion = F1Loss().cuda()
+        best_loss = 999
+        best_f1 = 0
+        best_results = [np.inf,0]
+        val_metrics = [np.inf,0]
 
-    all_files = pd.read_csv("./input/train.csv")
-    #print(all_files)
-    test_files = pd.read_csv("./input/sample_submission.csv")
-    train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
+        all_files = pd.read_csv("./input/train.csv")
+        #print(all_files)
+        train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
 
-    # load dataset
-    train_gen = HumanDataset(train_data_list,config.train_data,mode="train")
-    train_loader = DataLoader(train_gen,batch_size=config.batch_size,shuffle=True,pin_memory=True,num_workers=4)
+        # load dataset
+        train_gen = HumanDataset(train_data_list,config.train_data,mode="train")
+        train_loader = DataLoader(train_gen,batch_size=config.batch_size,shuffle=True,pin_memory=True,num_workers=4)
 
-    val_gen = HumanDataset(val_data_list,config.train_data,augument=False,mode="train")
-    val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=4)
+        val_gen = HumanDataset(val_data_list,config.train_data,augument=False,mode="train")
+        val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=4)
 
-    test_gen = HumanDataset(test_files,config.test_data,augument=False,mode="test")
-    test_loader = DataLoader(test_gen,1,shuffle=False,pin_memory=True,num_workers=4)
+        if config.resume:
+            log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
+            checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
+            loaded_model = torch.load(checkpoint_path)
+            model.load_state_dict(loaded_model["state_dict"])
+            start_epoch = loaded_model["epoch"]
+        else:
+            start_epoch = 0
 
-    if config.resume:
-        log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
-        checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
-        loaded_model = torch.load(checkpoint_path)
-        model.load_state_dict(loaded_model["state_dict"])
-        start_epoch = loaded_model["epoch"]
-    else:
-        start_epoch = 0
+        scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
+        start = timer()
 
-    scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
-    start = timer()
+        #train
+        for epoch in range(start_epoch,config.epochs):
+            scheduler.step(epoch)
+            # train
+            lr = get_learning_rate(optimizer)
+            train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start)
+            # val
+            val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start)
+            # check results
+            is_best_loss = val_metrics[0] < best_results[0]
+            best_results[0] = min(val_metrics[0],best_results[0])
+            is_best_f1 = val_metrics[1] > best_results[1]
+            best_results[1] = max(val_metrics[1],best_results[1])
+            # save model
+            save_checkpoint({
+                        "epoch":epoch + 1,
+                        "model_name":config.model_name,
+                        "state_dict":model.state_dict(),
+                        "best_loss":best_results[0],
+                        "optimizer":optimizer.state_dict(),
+                        "fold":fold,
+                        "best_f1":best_results[1],
+            },is_best_loss,is_best_f1,fold)
+            # print logs
+            print('\r',end='',flush=True)
+            log.write('%s  %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
+                    "best", epoch, epoch,
+                    train_metrics[0], train_metrics[1],
+                    val_metrics[0], val_metrics[1],
+                    str(best_results[0])[:8],str(best_results[1])[:8],
+                    time_to_str((timer() - start),'min'))
+                )
+            log.write("\n")
+            time.sleep(0.01)
 
-    #train
-    for epoch in range(start_epoch,config.epochs):
-        scheduler.step(epoch)
-        # train
-        lr = get_learning_rate(optimizer)
-        train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start)
-        # val
-        val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start)
-        # check results 
-        is_best_loss = val_metrics[0] < best_results[0]
-        best_results[0] = min(val_metrics[0],best_results[0])
-        is_best_f1 = val_metrics[1] > best_results[1]
-        best_results[1] = max(val_metrics[1],best_results[1])   
-        # save model
-        save_checkpoint({
-                    "epoch":epoch + 1,
-                    "model_name":config.model_name,
-                    "state_dict":model.state_dict(),
-                    "best_loss":best_results[0],
-                    "optimizer":optimizer.state_dict(),
-                    "fold":fold,
-                    "best_f1":best_results[1],
-        },is_best_loss,is_best_f1,fold)
-        # print logs
-        print('\r',end='',flush=True)
-        log.write('%s  %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
-                "best", epoch, epoch,                    
-                train_metrics[0], train_metrics[1], 
-                val_metrics[0], val_metrics[1],
-                str(best_results[0])[:8],str(best_results[1])[:8],
-                time_to_str((timer() - start),'min'))
-            )
-        log.write("\n")
-        time.sleep(0.01)
+            # ================================================================== #
+            #                        Tensorboard Logging                         #
+            # ================================================================== #
 
-        # ================================================================== #
-        #                        Tensorboard Logging                         #
-        # ================================================================== #
+            # 1. Log scalar values (scalar summary)
+            info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
+                    'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1]}
 
-        # 1. Log scalar values (scalar summary)
-        info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
-                'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1]}
+            for tag, value in info.items():
+                tflogger.scalar_summary(tag, value, epoch)
 
-        for tag, value in info.items():
-            tflogger.scalar_summary(tag, value, epoch)
+            # 2. Log values and gradients of the parameters (histogram summary)
+            for tag, value in model.named_parameters():
+                tag = tag.replace('.', '/')
+                tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
+                tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
+            # -------------------------------------
+            # end tflogger
 
-        # 2. Log values and gradients of the parameters (histogram summary)
-        for tag, value in model.named_parameters():
-            tag = tag.replace('.', '/')
-            tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
-            tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
-        # -------------------------------------
-        # end tflogger
+    # -------------------------------------------------------
+    # testing
+    # -------------------------------------------------------
+    elif config.mode=='test':
+        test_files = pd.read_csv("./input/sample_submission.csv")
+        test_gen = HumanDataset(test_files,config.test_data,augument=False,mode="test")
+        test_loader = DataLoader(test_gen,1,shuffle=False,pin_memory=True,num_workers=4)
 
-    best_model = torch.load("%s/%s_fold_%s_model_best_loss.pth.tar"%(config.best_models,config.model_name,str(fold)))
-    #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
-    model.load_state_dict(best_model["state_dict"])
-    test(test_loader,model,fold)
+        checkpoint_path = os.path.join(config.best_models,
+                                       '%{0}_fold_%{1}_model_best_loss.pth.tar'.format(config.model_name, fold))
+        best_model = torch.load(checkpoint_path)
+        #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
+        model.load_state_dict(best_model["state_dict"])
+        test(test_loader,model,fold)
+        print('Test successful!')
 if __name__ == "__main__":
     main()
