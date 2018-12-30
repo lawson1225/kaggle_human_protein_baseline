@@ -52,7 +52,7 @@ if not os.path.exists(config.logs):
     os.mkdir(config.logs)
 
 log = Logger()
-log.open("%s/%s_log_train.txt"%config.logs,config.model_name,mode="a")
+log.open('{0}{1}_log_train.txt'.format(config.logs, config.model_name),mode="a")
 log.write("\n----------------------------------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 log.write('                           |------------ Train -------------|----------- Valid -------------|----------Best Results---------|------------|\n')
 log.write('mode     iter     epoch    |         loss   f1_macro        |         loss   f1_macro       |         loss   f1_macro       | time       |\n')
