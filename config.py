@@ -1,6 +1,9 @@
 class DefaultConfigs(object):
-    train_data = "../Human_Protein_Atlas/input/train/" # where is your train data
-    test_data = "../Human_Protein_Atlas/input/test/"   # your test data
+    # train_data = "../Human_Protein_Atlas/input/train/" # where is your train data
+    # test_data = "../Human_Protein_Atlas/input/test/"   # your test data
+    train_data = "./input/train/"  # where is your train data
+    test_data = "./input/test/"  # your test data
+
     logs = "./results/logs/"
     weights = "./results/checkpoints/"
     best_models = "./results/checkpoints/best_models/"
