@@ -157,8 +157,8 @@ def main():
     # 4.1 mkdirs
     if not os.path.exists(config.submit):
         os.makedirs(config.submit)
-    if not os.path.exists(config.weights + config.model_name + os.sep +str(fold)):
-        os.makedirs(config.weights + config.model_name + os.sep +str(fold))
+    if not os.path.exists(config.weights + config.model_name + os.sep + 'fold_'+str(fold)):
+        os.makedirs(config.weights + config.model_name + os.sep + 'fold_'+ str(fold))
     if not os.path.exists(config.best_models):
         os.mkdir(config.best_models)
     if not os.path.exists(config.logs):
