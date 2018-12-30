@@ -33,8 +33,11 @@ parser.add_argument("--MODEL_NAME", help="NAME OF OUTPUT FOLDER",
                     type=str)
 parser.add_argument("--INITIAL_CHECKPOINT", help="CHECK POINT",
                     type=str)
+parser.add_argument("--RESUME", help="RESUME RUN",
+                    type=bool)
 args = parser.parse_args()
 
+config.resume = args.RESUME
 config.start_epoch = args.START_EPOCH
 config.model_name = args.MODEL_NAME
 config.initial_checkpoint = args.INITIAL_CHECKPOINT
