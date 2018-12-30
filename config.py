@@ -13,7 +13,7 @@ class DefaultConfigs(object):
     lr = 0.03
     batch_size = 40
     epochs = 50
-    resume = False
+    resume = True
     initial_checkpoint = '0'
 
 config = DefaultConfigs()

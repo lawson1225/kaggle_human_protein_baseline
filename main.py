@@ -179,7 +179,8 @@ def main():
     if config.resume:
         log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
         checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
-        model.load_state_dict(torch.load(checkpoint_path, map_location=lambda storage, loc: storage))
+        loaded_model = torch.load(checkpoint_path, map_location=lambda storage, loc: storage)
+        model.load_state_dict(loaded_model["state_dict"])
         start_epoch = int(config.initial_checkpoint) + 1
     else:
         start_epoch = 0
