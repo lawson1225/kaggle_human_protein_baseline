@@ -1,26 +1,7 @@
 from common import *
-# import os
-# import time
-# import json
-# import torch
-# import random
-# import torchvision
-# import numpy as np
-# import pandas as pd
-#
-# from utils import *
 from data import HumanDataset
 from kaggle_human_protein_baseline.model import*
-# from tqdm import tqdm
-# from datetime import datetime
 
-# from torch import nn,optim
-# from collections import OrderedDict
-# from torch.autograd import Variable
-# from torch.utils.data import DataLoader
-
-# from timeit import default_timer as timer
-# from sklearn.metrics import f1_score
 
 import argparse
 #-----------------------------------------------
@@ -186,8 +167,8 @@ def main():
     if config.mode == 'train':
         # criterion
         optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
-        criterion = nn.BCEWithLogitsLoss().cuda()
-        #criterion = FocalLoss().cuda()
+        # criterion = nn.BCEWithLogitsLoss().cuda()
+        criterion = FocalLoss().cuda()
         #criterion = F1Loss().cuda()
         best_loss = 999
         best_f1 = 0

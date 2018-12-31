@@ -157,6 +157,68 @@ class FocalLoss(nn.Module):
         w = w * (1-pt).pow(self.gamma)
         return F.binary_cross_entropy_with_logits(x, t, w, size_average=False)
 
+# class FocalLoss(nn.Module):
+#     def __init__(self, gamma=2, alpha=0.25, size_average=True):
+#         super(FocalLoss, self).__init__()
+#         self.gamma = gamma
+#         self.alpha = alpha
+#         if isinstance(alpha,(float,int,long)): self.alpha = torch.Tensor([alpha,1-alpha])
+#         if isinstance(alpha,list): self.alpha = torch.Tensor(alpha)
+#         self.size_average = size_average
+#
+#     def forward(self, input, target):
+#         if input.dim()>2:
+#             input = input.view(input.size(0),input.size(1),-1)  # N,C,H,W => N,C,H*W
+#             input = input.transpose(1,2)    # N,C,H*W => N,H*W,C
+#             input = input.contiguous().view(-1,input.size(2))   # N,H*W,C => N*H*W,C
+#         target = target.view(-1,1)
+#
+#         logpt = F.log_softmax(input)
+#         logpt = logpt.gather(1,target)
+#         logpt = logpt.view(-1)
+#         pt = Variable(logpt.data.exp())
+#
+#         if self.alpha is not None:
+#             if self.alpha.type()!=input.data.type():
+#                 self.alpha = self.alpha.type_as(input.data)
+#             at = self.alpha.gather(0,target.data.view(-1))
+#             logpt = logpt * Variable(at)
+#
+#         loss = -1 * (1-pt)**self.gamma * logpt
+#         if self.size_average:
+#             return loss.mean()
+#         else:
+#             return loss.sum()
+
+# F1_loss
+# https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
+# https://discuss.pytorch.org/t/build-your-own-loss-function-in-pytorch/235/3
+class F1_loss(nn.Module):
+    def __init__(self):
+        super(F1_loss, self).__init__()
+
+    def forward(self, x, y):
+        """
+
+        :param x: prediction
+        :param y: target
+        """
+        y_true = y.cpu()
+        y_pred = x.sigmoid().cpu()
+        tp = np.sum(y_true * y_pred, axis=0)
+        tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
+        tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
+        fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
+        fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
+
+        p = tp / (tp + fp + K.epsilon())
+        r = tp / (tp + fn + K.epsilon())
+
+        f1 = 2 * p * r / (p + r + K.epsilon())
+        f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
+
+
+
 def get_learning_rate(optimizer):
     lr=[]
     for param_group in optimizer.param_groups:
