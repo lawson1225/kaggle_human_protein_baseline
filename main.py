@@ -105,27 +105,35 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
         for i, (images,target) in enumerate(val_loader):
             images_var = images.cuda(non_blocking=True)
             target = torch.from_numpy(np.array(target)).float().cuda(non_blocking=True)
-            #image_var = Variable(images).cuda()
-            #target = Variable(torch.from_numpy(np.array(target)).long()).cuda()
-            # output = model(images_var)
-            output = data_parallel(model, images_var)
-            loss = criterion(output,target)
-            losses.update(loss.item(),images_var.size(0))
-            f1_batch = f1_score(target.cpu(),output.sigmoid().cpu().data.numpy() > 0.15,average='macro')
-            f1.update(f1_batch,images_var.size(0))
-            print('\r',end='',flush=True)
-            message = '%s   %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
-                    "val", i/len(val_loader) + epoch, epoch,                    
-                    train_loss[0], train_loss[1], 
-                    losses.avg, f1.avg,
-                    str(best_results[0])[:8],str(best_results[1])[:8],
-                    time_to_str((timer() - start),'min'))
 
-            print(message, end='',flush=True)
+            # optain output of a batch
+            output = data_parallel(model, images_var)
+
+            # Concatenate all every batch
+            if i == 0:
+                total_output = output
+                total_target = target
+            else:
+                total_output = torch.cat([total_output, output], 0)
+                total_target = torch.cat([total_target, target], 0)
+
+        # compute loss for the entire evaluation dataset
+        loss = criterion(total_output, total_target)
+        losses.update(loss.item(), images_var.size(0))
+        f1_batch = f1_score(total_target.cpu(), total_output.sigmoid().cpu().data.numpy() > 0.15, average='macro')
+        f1.update(f1_batch, images_var.size(0))
+        print('\r', end='', flush=True)
+        message = '%s   %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % ( \
+            "val", epoch, epoch,
+            train_loss[0], train_loss[1],
+            losses.avg, f1.avg,
+            str(best_results[0])[:8], str(best_results[1])[:8],
+            time_to_str((timer() - start), 'min'))
+
+        print(message, end='', flush=True)
+
         log.write("\n")
-        #log.write(message)
-        #log.write("\n")
-        
+
     return [losses.avg,f1.avg]
 
 # 3. test model on public dataset and save the probability matrix
