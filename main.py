@@ -28,6 +28,12 @@ config.mode = args.MODE
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
+try:
+    print('\t\tos[\'CUDA_VISIBLE_DEVICES\']     =', os.environ['CUDA_VISIBLE_DEVICES'])
+    NUM_CUDA_DEVICES = len(os.environ['CUDA_VISIBLE_DEVICES'].split(','))
+except Exception:
+    print('\t\tos[\'CUDA_VISIBLE_DEVICES\']     =', 'None')
+    NUM_CUDA_DEVICES = 1
 warnings.filterwarnings('ignore')
 
 if not os.path.exists(config.logs):

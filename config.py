@@ -18,7 +18,7 @@ class DefaultConfigs(object):
     epochs = 50
     resume = True
     initial_checkpoint = '0'
-    gpus = "0"
+    gpus = "0,1,2,3"
     mode = 'train'
 
 config = DefaultConfigs()
