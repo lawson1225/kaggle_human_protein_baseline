@@ -173,7 +173,6 @@ class FocalLoss(nn.Module):
 
     def forward(self, x, y):
 
-        # target = target.view(-1,1).long()
         t = Variable(y).cuda()
         p = x.sigmoid()
         pt = p*t + (1-p)*(1-t)         # pt = p if t > 0 else 1-p
@@ -191,29 +190,25 @@ class FocalLoss(nn.Module):
 # F1_loss
 # https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
 # https://discuss.pytorch.org/t/build-your-own-loss-function-in-pytorch/235/3
+# https://www.kaggle.com/c/human-protein-atlas-image-classification/discussion/70225?
 class F1_loss(nn.Module):
     def __init__(self):
         super(F1_loss, self).__init__()
-
-    def forward(self, x, y):
-        """
-
-        :param x: prediction
-        :param y: target
-        """
-        y_true = y.cpu()
-        y_pred = x.sigmoid().cpu()
-        tp = np.sum(y_true * y_pred, axis=0)
-        tp = K.sum(K.cast(y_true * y_pred, 'float'), axis=0)
-        tn = K.sum(K.cast((1 - y_true) * (1 - y_pred), 'float'), axis=0)
-        fp = K.sum(K.cast((1 - y_true) * y_pred, 'float'), axis=0)
-        fn = K.sum(K.cast(y_true * (1 - y_pred), 'float'), axis=0)
-
-        p = tp / (tp + fp + K.epsilon())
-        r = tp / (tp + fn + K.epsilon())
-
-        f1 = 2 * p * r / (p + r + K.epsilon())
-        f1 = tf.where(tf.is_nan(f1), tf.zeros_like(f1), f1)
+        self.__small_value = 1e-6
+        self.beta = 1
+    def forward(self, logits, labels):
+        batch_size = logits.size()[0]
+        p = F.sigmoid(logits)
+        l = Variable(labels)
+        tp = torch.sum(l * p, 1)
+        tn = torch.sum((1-l) * (1-p), 1)
+        fp = torch.sum((1-l) * p, 1)
+        fn = torch.sum(l * (1-p), 1)
+        precise = tp / (tp + fp + self.__small_value)
+        recall = tp / (tp + fn + self.__small_value)
+        fs = (1 + self.beta * self.beta) * precise * recall / (self.beta * self.beta * precise + recall + self.__small_value)
+        loss = fs.sum() / batch_size
+        return (1 - loss)
 
 
 

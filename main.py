@@ -174,8 +174,8 @@ def main():
         # criterion
         optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
         # criterion = nn.BCEWithLogitsLoss().cuda()
-        criterion = FocalLoss().cuda()
-        #criterion = F1Loss().cuda()
+        # criterion = FocalLoss().cuda()
+        criterion = F1_loss().cuda()
         best_loss = 999
         best_f1 = 0
         best_results = [np.inf,0]
