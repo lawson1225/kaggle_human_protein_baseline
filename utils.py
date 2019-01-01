@@ -158,7 +158,7 @@ class TFLogger(object):
 #         return F.binary_cross_entropy_with_logits(x, t, w, size_average=False)
 
 class FocalLoss(nn.Module):
-    def __init__(self, gamma=2, alpha=0.25, size_average=True):
+    def __init__(self, gamma=2, alpha=0.25, size_average=False):
         super(FocalLoss, self).__init__()
         self.gamma = gamma
         self.alpha = alpha
@@ -172,6 +172,7 @@ class FocalLoss(nn.Module):
 
 
     def forward(self, x, y):
+
         # target = target.view(-1,1).long()
         t = Variable(y).cuda()
         p = x.sigmoid()
