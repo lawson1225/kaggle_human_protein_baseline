@@ -207,7 +207,8 @@ class F1_loss(nn.Module):
         precise = tp / (tp + fp + self.__small_value)
         recall = tp / (tp + fn + self.__small_value)
         fs = (1 + self.beta * self.beta) * precise * recall / (self.beta * self.beta * precise + recall + self.__small_value)
-        loss = fs.sum() / batch_size
+        # loss = fs.sum() / batch_size
+        loss = fs.mean()
         return (1 - loss)
 
 
