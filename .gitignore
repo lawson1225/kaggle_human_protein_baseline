@@ -13,7 +13,7 @@ scripts/
 __pycache__/
 *.py[cod]
 *$py.class
-.idea/
+.idea/*
 __pycache__/*
 
 # Distribution / packaging
