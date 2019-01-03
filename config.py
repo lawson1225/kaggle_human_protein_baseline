@@ -13,7 +13,7 @@ class DefaultConfigs(object):
     img_weight = 512
     img_height = 512
     channels = 4
-    lr = 0.03
+    lr = 1e-4
     batch_size = 40
     epochs = 50
     resume = True

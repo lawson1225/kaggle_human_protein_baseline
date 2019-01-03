@@ -45,10 +45,10 @@ if not os.path.exists(config.logs):
 
 log = Logger()
 log.open('{0}{1}_log_train.txt'.format(config.logs, config.model_name),mode="a")
-log.write("\n----------------------------------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
-log.write('                           |------------ Train -------------|----------- Valid -------------|----------Best Results---------|------------|\n')
-log.write('mode     iter     epoch    |         loss   f1_macro        |         loss   f1_macro       |         loss   f1_macro       | time       |\n')
-log.write('-------------------------------------------------------------------------------------------------------------------------------\n')
+log.write("\n-------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
+log.write('                          |------ Train ------|------ Valid ------|----Best Results---|------------|\n')
+log.write('mode    iter   epoch    lr|  loss    f1_macro |  loss    f1_macro |  loss    f1_macro | time       |\n')
+log.write('----------------------------------------------------------------------------------------------------\n')
 
 # tflogger
 tflogger = TFLogger(os.path.join('results','TFlogs', config.model_name))
@@ -72,7 +72,7 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,s
         loss.backward()
         optimizer.step()
         print('\r',end='',flush=True)
-        message = '%s %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f           |         %s      %s            | %s' % (\
+        message = '%s %5.1f %6.1f        |  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % (\
                 "train", i/len(train_loader) + epoch, epoch,
                 losses.avg, f1.avg, 
                 valid_loss[0], valid_loss[1], 
@@ -114,7 +114,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start, thr
         f1_batch = f1_score(total_target.cpu(), total_output.sigmoid().cpu().data.numpy() > threshold, average='macro')
         f1.update(f1_batch, images_var.size(0))
         print('\r', end='', flush=True)
-        message = '%s   %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % ( \
+        message = '%s %5.1f %6.1f        |  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % ( \
             "val", epoch, epoch,
             train_loss[0], train_loss[1],
             losses.avg, f1.avg,
@@ -144,7 +144,7 @@ def test(test_loader,model,folds):
             label = y_pred.sigmoid().cpu().data.numpy()
             #print(label > 0.5)
            
-            labels.append(label > 0.15)
+            labels.append(label > config.threshold)
             filenames.append(filepath)
 
     for row in np.concatenate(labels):
@@ -176,12 +176,18 @@ def main():
     # -------------------------------------------------------
     if config.mode == 'train':
         # criterion
-        optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
+        # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
+
+        # Use the optim package to define an Optimizer that will update the weights of
+        # the model for us. Here we will use Adam; the optim package contains many other
+        # optimization algoriths. The first argument to the Adam constructor tells the
+        # optimizer which Tensors it should update.
+        optimizer = optim.Adam(model.parameters(), lr = config.lr)
         criterion = nn.BCEWithLogitsLoss().cuda()
         # criterion = FocalLoss().cuda()
         # criterion = F1_loss().cuda()
-        best_loss = 999
-        best_f1 = 0
+        # best_loss = 999
+        # best_f1 = 0
         best_results = [np.inf,0]
         val_metrics = [np.inf,0]
 
@@ -196,6 +202,9 @@ def main():
         val_gen = HumanDataset(val_data_list,config.train_data,augument=False,mode="train")
         val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=4)
 
+        # initialize the early_stopping object
+        early_stopping = EarlyStopping(patience=7, verbose=True)
+
         if config.resume:
             log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
             checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
@@ -205,7 +214,7 @@ def main():
         else:
             start_epoch = 0
 
-        scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.1)
+        scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.5)
         start = timer()
 
         #train
@@ -233,8 +242,9 @@ def main():
             },is_best_loss,is_best_f1,fold)
             # print logs
             print('\r',end='',flush=True)
-            log.write('%s  %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % (\
-                    "best", epoch, epoch,
+
+            log.write('%s %5.1f %6.1f  %.2E|  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % (\
+                    "best", epoch, epoch, Decimal(lr),
                     train_metrics[0], train_metrics[1],
                     val_metrics[0], val_metrics[1],
                     str(best_results[0])[:8],str(best_results[1])[:8],
@@ -249,7 +259,8 @@ def main():
 
             # 1. Log scalar values (scalar summary)
             info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
-                    'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1]}
+                    'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1],
+                    'Learnging_rate': lr}
 
             for tag, value in info.items():
                 tflogger.scalar_summary(tag, value, epoch)
@@ -261,6 +272,18 @@ def main():
                 tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
             # -------------------------------------
             # end tflogger
+
+            # ================================================================== #
+            #                        Early stopping                         #
+            # ================================================================== #
+            # early_stopping needs the validation loss to check if it has decresed,
+            # and if it has, it will make a checkpoint of the current model
+            early_stopping(val_metrics[0], model)
+
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
+
 
     # -------------------------------------------------------
     # testing
