@@ -20,5 +20,6 @@ class DefaultConfigs(object):
     initial_checkpoint = '0'
     gpus = "0,1,2,3"
     mode = 'train'
+    threshold=0.3
 
 config = DefaultConfigs()

@@ -26,6 +26,7 @@ config.initial_checkpoint = args.INITIAL_CHECKPOINT
 config.batch_size = args.BATCH_SIZE
 config.mode = args.MODE
 
+
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
 try:
@@ -49,7 +50,7 @@ log.write('---------------------------------------------------------------------
 # tflogger
 tflogger = TFLogger(os.path.join('results','TFlogs', config.model_name))
 
-def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,start):
+def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,start, threshold=0.3):
     losses = AverageMeter()
     f1 = AverageMeter()
     model.train()
@@ -62,7 +63,7 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,s
         loss = criterion(output,target)
         losses.update(loss.item(),images.size(0))
         
-        f1_batch = f1_score(target.cpu(),output.sigmoid().cpu() > 0.15,average='macro')
+        f1_batch = f1_score(target.cpu(),output.sigmoid().cpu() > threshold,average='macro')
         f1.update(f1_batch,images.size(0))
         optimizer.zero_grad()
         loss.backward()
@@ -81,7 +82,7 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,s
     return [losses.avg,f1.avg]
 
 # 2. evaluate fuunction
-def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
+def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start, threshold=0.3):
     # only meter loss and f1 score
     losses = AverageMeter()
     f1 = AverageMeter()
@@ -107,7 +108,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start):
         # compute loss for the entire evaluation dataset
         loss = criterion(total_output, total_target)
         losses.update(loss.item(), images_var.size(0))
-        f1_batch = f1_score(total_target.cpu(), total_output.sigmoid().cpu().data.numpy() > 0.15, average='macro')
+        f1_batch = f1_score(total_target.cpu(), total_output.sigmoid().cpu().data.numpy() > threshold, average='macro')
         f1.update(f1_batch, images_var.size(0))
         print('\r', end='', flush=True)
         message = '%s   %5.1f %6.1f         |         %0.3f  %0.3f           |         %0.3f  %0.4f         |         %s  %s    | %s' % ( \
@@ -209,9 +210,9 @@ def main():
             scheduler.step(epoch)
             # train
             lr = get_learning_rate(optimizer)
-            train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start)
+            train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start,config.threshold)
             # val
-            val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start)
+            val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start, config.threshold)
             # check results
             is_best_loss = val_metrics[0] < best_results[0]
             best_results[0] = min(val_metrics[0],best_results[0])

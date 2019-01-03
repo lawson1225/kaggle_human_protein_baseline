@@ -15,6 +15,7 @@ __pycache__/
 *$py.class
 .idea/*
 __pycache__/*
+*.xml
 
 # Distribution / packaging
 .Python
