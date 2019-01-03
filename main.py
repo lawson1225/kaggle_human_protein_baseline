@@ -18,6 +18,8 @@ parser.add_argument("--BATCH_SIZE", help="BATCH SIZE TIMES NUMBER OF GPUS",
                     type=int)
 parser.add_argument("--MODE", help="TRAIN OR TEST",
                     type=str)
+parser.add_argument("--GPUS", help="GPU",
+                    type=str)
 args = parser.parse_args()
 
 config.resume = args.RESUME
@@ -25,6 +27,7 @@ config.model_name = args.MODEL_NAME
 config.initial_checkpoint = args.INITIAL_CHECKPOINT
 config.batch_size = args.BATCH_SIZE
 config.mode = args.MODE
+config.gpus = args.GPUS
 
 
 # 1. set random seed
