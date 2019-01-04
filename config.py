@@ -22,5 +22,6 @@ class DefaultConfigs(object):
     mode = 'train'
     threshold=0.3
     checkpoint = 0
+    loss="bcelog"
 
 config = DefaultConfigs()

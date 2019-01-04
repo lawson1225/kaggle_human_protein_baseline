@@ -21,9 +21,11 @@ parser.add_argument("--MODE", help="TRAIN OR TEST",
 parser.add_argument("--GPUS", help="GPU",
                     type=str)
 parser.add_argument("--LR", help="INITIAL LEARNING RATE",
-                    type=float)
+                    default=1e-4,type=float)
 parser.add_argument("--CHECKPOINT", help="CHECK POINT FOR TEST",
                     default=0, type=int)
+parser.add_argument("--LOSS", help="LOSS CRITERION",
+                    default="bcelog", type=str)
 args = parser.parse_args()
 
 config.resume = args.RESUME
@@ -34,7 +36,7 @@ config.mode = args.MODE
 config.gpus = args.GPUS
 config.lr = args.LR
 config.checkpoint = args.CHECKPOINT
-
+config.loss = args.LOSS
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
@@ -51,6 +53,8 @@ if not os.path.exists(config.logs):
 
 log = Logger()
 log.open('{0}{1}_log_train.txt'.format(config.logs, config.model_name),mode="a")
+for arg in vars(args):
+    log.write('{0}:{1}\n'.format(arg, getattr(args, arg)))
 log.write("\n-------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 log.write('                          |------ Train ------|------ Valid ------|----Best Results---|------------|\n')
 log.write('mode    iter   epoch    lr|  loss    f1_macro |  loss    f1_macro |  loss    f1_macro | time       |\n')
@@ -181,6 +185,11 @@ def main():
     # training
     # -------------------------------------------------------
     if config.mode == 'train':
+        optimizer = optim.Adam(model.parameters(), lr = config.lr)
+
+        # ================================================================== #
+        #                        Loss criterioin                             #
+        # ================================================================== #
         # criterion
         # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
 
@@ -188,10 +197,14 @@ def main():
         # the model for us. Here we will use Adam; the optim package contains many other
         # optimization algoriths. The first argument to the Adam constructor tells the
         # optimizer which Tensors it should update.
-        optimizer = optim.Adam(model.parameters(), lr = config.lr)
-        criterion = nn.BCEWithLogitsLoss().cuda()
+        assert config.loss in ['bcelog', 'f1_loss', 'focal_loss'], \
+            print("Loss type {0} is unknown".format(config.loss))
+        if config.loss == 'bcelog':
+            criterion = nn.BCEWithLogitsLoss().cuda()
+        elif config.loss == 'f1_loss':
+            criterion = F1_loss().cuda()
         # criterion = FocalLoss().cuda()
-        # criterion = F1_loss().cuda()
+
         # best_loss = 999
         # best_f1 = 0
         best_results = [np.inf,0]
