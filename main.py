@@ -10,14 +10,14 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--MODEL_NAME", help="NAME OF OUTPUT FOLDER",
                     type=str)
+parser.add_argument("--MODE", help="TRAIN OR TEST",
+                    type=str)
 parser.add_argument("--INITIAL_CHECKPOINT", help="CHECK POINT",
                     type=str)
 parser.add_argument("--RESUME", help="RESUME RUN",
                     type=bool)
 parser.add_argument("--BATCH_SIZE", help="BATCH SIZE TIMES NUMBER OF GPUS",
                     type=int)
-parser.add_argument("--MODE", help="TRAIN OR TEST",
-                    type=str)
 parser.add_argument("--GPUS", help="GPU",
                     type=str)
 parser.add_argument("--LR", help="INITIAL LEARNING RATE",
@@ -26,6 +26,9 @@ parser.add_argument("--CHECKPOINT", help="CHECK POINT FOR TEST",
                     default=0, type=int)
 parser.add_argument("--LOSS", help="LOSS CRITERION",
                     default="bcelog", type=str)
+parser.add_argument("--IMG_HEIGHT", help="SIZE OF IMAGE",
+                    default=512, type=int)
+
 args = parser.parse_args()
 
 config.resume = args.RESUME
@@ -37,6 +40,7 @@ config.gpus = args.GPUS
 config.lr = args.LR
 config.checkpoint = args.CHECKPOINT
 config.loss = args.LOSS
+config.img_height = args.IMG_HEIGHT
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
