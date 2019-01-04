@@ -20,6 +20,8 @@ parser.add_argument("--MODE", help="TRAIN OR TEST",
                     type=str)
 parser.add_argument("--GPUS", help="GPU",
                     type=str)
+parser.add_argument("--LR", help="INITIAL LEARNING RATE",
+                    type=float)
 args = parser.parse_args()
 
 config.resume = args.RESUME
@@ -28,6 +30,7 @@ config.initial_checkpoint = args.INITIAL_CHECKPOINT
 config.batch_size = args.BATCH_SIZE
 config.mode = args.MODE
 config.gpus = args.GPUS
+config.lr = args.LR
 
 
 # 1. set random seed
@@ -114,7 +117,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start, thr
         f1_batch = f1_score(total_target.cpu(), total_output.sigmoid().cpu().data.numpy() > threshold, average='macro')
         f1.update(f1_batch, images_var.size(0))
         print('\r', end='', flush=True)
-        message = '%s %5.1f %6.1f        |  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % ( \
+        message = '%s   %5.1f %6.1f        |  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % ( \
             "val", epoch, epoch,
             train_loss[0], train_loss[1],
             losses.avg, f1.avg,
@@ -243,7 +246,7 @@ def main():
             # print logs
             print('\r',end='',flush=True)
 
-            log.write('%s %5.1f %6.1f  %.2E|  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % (\
+            log.write('%s  %5.1f %6.1f  %.2E|  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % (\
                     "best", epoch, epoch, Decimal(lr),
                     train_metrics[0], train_metrics[1],
                     val_metrics[0], val_metrics[1],
