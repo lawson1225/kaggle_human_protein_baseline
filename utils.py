@@ -9,6 +9,7 @@ from torch import nn
 import torch.nn.functional as F 
 from sklearn.metrics import f1_score
 from torch.autograd import Variable
+import pandas as pd
 
 
 # Code referenced from https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514
@@ -304,4 +305,36 @@ def time_to_str(t, mode='min'):
 
     else:
         raise NotImplementedError
+
+
+# creating duplicates for rare classes in train set
+class Oversampling:
+    def __init__(self, path):
+        self.train_labels = pd.read_csv(path).set_index('Id')
+        self.train_labels['Target'] = [[int(i) for i in s.split()]
+                                       for s in self.train_labels['Target']]
+        # set the minimum number of duplicates for each class
+        self.multi = [1, 1, 1, 1, 1, 1, 1, 1,
+                      4, 4, 4, 1, 1, 1, 1, 4,
+                      1, 1, 1, 1, 2, 1, 1, 1,
+                      1, 1, 1, 4]
+
+    def get(self, image_id):
+        labels = self.train_labels.loc[image_id, 'Target'] if image_id \
+                                                              in self.train_labels.index else []
+        m = 1
+        for l in labels:
+            if m < self.multi[l]:
+                m = self.multi[l]
+        return m
+
+if __name__ == '__main__':
+    with open(os.path.join("./input/protein-trainval-split", 'tr_names.txt'), 'r') as text_file:
+        train_names = text_file.read().split(',')
+
+    s =  Oversampling("./input/train.csv")
+    train_names = [idx for idx in train_names for _ in range(s.get(idx))]
+    print(len(train_names), flush=True)
+
+
 

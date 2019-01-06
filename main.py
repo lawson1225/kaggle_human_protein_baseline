@@ -226,7 +226,16 @@ def main():
         # using a split that includes all classes in val
         with open(os.path.join("./input/protein-trainval-split", 'tr_names.txt'), 'r') as text_file:
             train_names =  text_file.read().split(',')
-            train_data_list = all_files[all_files['Id'].isin(train_names)]
+            # oversample
+            s = Oversampling("./input/train.csv")
+            train_names = [idx for idx in train_names for _ in range(s.get(idx))]
+            # train_data_list = all_files[all_files['Id'].isin(train_names)]
+            train_data_list = all_files.copy().set_index('Id')
+            # train_data_list
+            train_data_list = train_data_list.reindex(train_names)
+            #57150 -> 29016
+            #reset index
+            train_data_list = train_data_list.rename_axis('Id').reset_index()
         with open(os.path.join("./input/protein-trainval-split", 'val_names.txt'), 'r') as text_file:
             val_names =  text_file.read().split(',')
             val_data_list = all_files[all_files['Id'].isin(val_names)]
