@@ -198,35 +198,55 @@ class TFLogger(object):
 #         w = w * (1-pt).pow(self.gamma)
 #         return F.binary_cross_entropy_with_logits(x, t, w, size_average=False)
 
+# class FocalLoss(nn.Module):
+#     def __init__(self, gamma=2, alpha=0.25, size_average=False):
+#         super(FocalLoss, self).__init__()
+#         self.gamma = gamma
+#         self.alpha = alpha
+#         self.size_average = size_average
+#         # if isinstance(alpha, (float, int)):
+#         #     if self.alpha > 1:
+#         #         raise ValueError('Not supported value, alpha should be small than 1.0')
+#         #     else:
+#         #         self.alpha = torch.Tensor([alpha, 1.0 - alpha])
+#         # if isinstance(alpha, list): self.alpha = torch.Tensor(alpha)
+#
+#
+#     def forward(self, x, y):
+#
+#         t = Variable(y).cuda()
+#         p = x.sigmoid()
+#         pt = p*t + (1-p)*(1-t)         # pt = p if t > 0 else 1-p
+#         logpt = torch.log(pt + 1e-10)
+#
+#         # alpha = alpha if t > 0 else 1-alpha
+#         alpha = self.alpha *t + (1-self.alpha)*(1-t)
+#         loss = -1 * alpha * torch.pow((1 - pt), self.gamma) * logpt
+#
+#         if self.size_average:
+#             return loss.mean()
+#         else:
+#             return loss.sum()
+
+
 class FocalLoss(nn.Module):
-    def __init__(self, gamma=2, alpha=0.25, size_average=False):
-        super(FocalLoss, self).__init__()
+    def __init__(self, gamma=2):
+        super().__init__()
         self.gamma = gamma
-        self.alpha = alpha
-        self.size_average = size_average
-        # if isinstance(alpha, (float, int)):
-        #     if self.alpha > 1:
-        #         raise ValueError('Not supported value, alpha should be small than 1.0')
-        #     else:
-        #         self.alpha = torch.Tensor([alpha, 1.0 - alpha])
-        # if isinstance(alpha, list): self.alpha = torch.Tensor(alpha)
 
+    def forward(self, input, target):
+        if not (target.size() == input.size()):
+            raise ValueError("Target size ({}) must be the same as input size ({})"
+                             .format(target.size(), input.size()))
 
-    def forward(self, x, y):
+        max_val = (-input).clamp(min=0)
+        loss = input - input * target + max_val + \
+               ((-max_val).exp() + (-input - max_val).exp()).log()
 
-        t = Variable(y).cuda()
-        p = x.sigmoid()
-        pt = p*t + (1-p)*(1-t)         # pt = p if t > 0 else 1-p
-        logpt = torch.log(pt + 1e-10)
+        invprobs = F.logsigmoid(-input * (target * 2.0 - 1.0))
+        loss = (invprobs * self.gamma).exp() * loss
 
-        # alpha = alpha if t > 0 else 1-alpha
-        alpha = self.alpha *t + (1-self.alpha)*(1-t)
-        loss = -1 * alpha * torch.pow((1 - pt), self.gamma) * logpt
-
-        if self.size_average:
-            return loss.mean()
-        else:
-            return loss.sum()
+        return loss.sum(dim=1).mean()
 
 # F1_loss
 # https://www.kaggle.com/rejpalcz/best-loss-function-for-f1-score-metric
@@ -253,6 +273,10 @@ class F1_loss(nn.Module):
         return (1 - loss)
 
 
+def acc(preds,targs,th=0.0):
+    preds = (preds > th).int()
+    targs = targs.int()
+    return (preds==targs).float().mean()
 
 def get_learning_rate(optimizer):
     lr=[]

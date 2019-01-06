@@ -165,6 +165,10 @@ def test(test_loader,model,folds):
         subrow = ' '.join(list([str(i) for i in np.nonzero(row)[0]]))
         submissions.append(subrow)
     sample_submission_df['Predicted'] = submissions
+
+    # https://www.kaggle.com/c/human-protein-atlas-image-classification/discussion/69366#409041
+    # sample_submission_df = sample_submission_df.sort_index()
+
     sample_submission_df.to_csv('./results/submit/%s_bestloss_submission.csv'%config.model_name, index=None)
 
 # 4. main function
@@ -207,7 +211,8 @@ def main():
             criterion = nn.BCEWithLogitsLoss().cuda()
         elif config.loss == 'f1_loss':
             criterion = F1_loss().cuda()
-        # criterion = FocalLoss().cuda()
+        elif config.loss == 'focal_loss':
+            criterion = FocalLoss().cuda()
 
         # best_loss = 999
         # best_f1 = 0
@@ -216,7 +221,15 @@ def main():
 
         all_files = pd.read_csv("./input/train.csv")
         #print(all_files)
-        train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
+        # train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
+
+        # using a split that includes all classes in val
+        with open(os.path.join("./input/protein-trainval-split", 'tr_names.txt'), 'r') as text_file:
+            train_names =  text_file.read().split(',')
+            train_data_list = all_files[all_files['Id'].isin(train_names)]
+        with open(os.path.join("./input/protein-trainval-split", 'val_names.txt'), 'r') as text_file:
+            val_names =  text_file.read().split(',')
+            val_data_list = all_files[all_files['Id'].isin(val_names)]
 
         # load dataset
         train_gen = HumanDataset(train_data_list,config.train_data,mode="train")
