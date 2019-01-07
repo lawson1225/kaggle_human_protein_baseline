@@ -142,7 +142,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start, thr
     return [losses.avg,f1.avg]
 
 # 3. test model on public dataset and save the probability matrix
-def test(test_loader,model,folds):
+def test(test_loader,model,thresholds):
     sample_submission_df = pd.read_csv("./input/sample_submission.csv")
     #3.1 confirm the model converted to cuda
     filenames,labels ,submissions= [],[],[]
@@ -155,10 +155,12 @@ def test(test_loader,model,folds):
         with torch.no_grad():
             image_var = input.cuda(non_blocking=True)
             y_pred = model(image_var)
-            label = y_pred.sigmoid().cpu().data.numpy()
+            # label = y_pred.sigmoid().cpu().data.numpy()
+            label = y_pred.cpu().data.numpy()
             #print(label > 0.5)
            
-            labels.append(label > config.threshold)
+            # labels.append(label > config.threshold)
+            labels.append(label > thresholds)
             filenames.append(filepath)
 
     for row in np.concatenate(labels):
@@ -344,7 +346,12 @@ def main():
         best_model = torch.load(checkpoint_path)
         #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
         model.load_state_dict(best_model["state_dict"])
-        test(test_loader,model,fold)
+        thresholds =[-0.13432257, -0.4642075,  -0.50726506, -0.49715518, -0.41125674,  0.11581507,
+                     -1.0143597,  -0.18461785, -0.61600877, -0.47275479, -0.9142859,  -0.44323673,
+                     -0.58404387, -0.22959213, -0.26110631, -0.43723898, -0.97624685, -0.44612319,
+                     -0.4492785,  -0.56681327, -0.16156543, -0.12577745, -0.75476121, -0.91473052,
+                      -0.53361931, -0.19337344, -0.0857145,  -0.45739976]
+        test(test_loader,model,thresholds)
         print('Test successful!')
 if __name__ == "__main__":
     main()

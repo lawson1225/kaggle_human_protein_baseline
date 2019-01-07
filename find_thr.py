@@ -164,7 +164,7 @@ if __name__ == '__main__':
     model.load_state_dict(best_model["state_dict"])
 
 
-    preds,y = validate(train_loader,model)
+    preds,y = validate(val_loader,model)
     preds = preds.cpu()
     preds = np.array(preds)
     y = y.cpu()
@@ -174,26 +174,26 @@ if __name__ == '__main__':
     # pred = preds.mean(axis=-1)
 
 
-
-    th = fit_val(preds,y)
-    print('Thresholds: ',th)
-    print('F1 macro: ',f1_score(y, preds>th, average='macro'))
-    print('F1 macro (th = 0.0): ',f1_score(y, preds>0.0, average='macro'))
-    print('F1 micro: ',f1_score(y, preds>th, average='micro'))
-
-# Thresholds:  [-0.79494995 -0.08028803 -0.06839066 -0.54636391  0.39274047 -0.06704237
-#  -0.8016432  -0.46357643  0.43253807 -0.84245714 -2.84211516 -0.27193429
-#   0.13533374 -0.16440481 -0.1186454   0.          0.15110027 -0.18069459
-#  -0.4793194  -0.50146258 -0.2156128  -0.31305433 -1.46252153 -1.41710544
-#  -0.34938362 -0.13460358  0.07340712  0.        ]
-# F1 macro:  0.6668250095431967
-# F1 macro (th = 0.0):  0.6476885711723936
-# F1 micro:  0.7466047591410332
-
-
-
-# Using CV to prevent overfitting the thresholds:
-th, score, cv = 0,0,10
+#
+#     th = fit_val(preds,y)
+#     print('Thresholds: ',th)
+#     print('F1 macro: ',f1_score(y, preds>th, average='macro'))
+#     print('F1 macro (th = 0.0): ',f1_score(y, preds>0.0, average='macro'))
+#     print('F1 micro: ',f1_score(y, preds>th, average='micro'))
+#
+# # Thresholds:  [-0.79494995 -0.08028803 -0.06839066 -0.54636391  0.39274047 -0.06704237
+# #  -0.8016432  -0.46357643  0.43253807 -0.84245714 -2.84211516 -0.27193429
+# #   0.13533374 -0.16440481 -0.1186454   0.          0.15110027 -0.18069459
+# #  -0.4793194  -0.50146258 -0.2156128  -0.31305433 -1.46252153 -1.41710544
+# #  -0.34938362 -0.13460358  0.07340712  0.        ]
+# # F1 macro:  0.6668250095431967
+# # F1 macro (th = 0.0):  0.6476885711723936
+# # F1 micro:  0.7466047591410332
+#
+#
+#
+# # Using CV to prevent overfitting the thresholds:
+th, score, cv = 0.5,0,10
 for i in range(cv):
     xt,xv,yt,yv = train_test_split(preds,y,test_size=0.5,random_state=i)
     th_i = fit_val(xt,yt)
@@ -205,11 +205,29 @@ print('Thresholds: ',th)
 print('F1 macro avr:',score)
 print('F1 macro: ',f1_score(y, preds>th, average='macro'))
 print('F1 micro: ',f1_score(y, preds>th, average='micro'))
-# Thresholds:  [-0.79494995 -0.08028803 -0.06839066 -0.54636391  0.39274047 -0.06704237
-#  -0.8016432  -0.46357643  0.43253807 -0.84245714 -2.84211516 -0.27193429
-#   0.13533374 -0.16440481 -0.1186454   0.          0.15110027 -0.18069459
-#  -0.4793194  -0.50146258 -0.2156128  -0.31305433 -1.46252153 -1.41710544
-#  -0.34938362 -0.13460358  0.07340712  0.        ]
-# F1 macro:  0.6668250095431967
-# F1 macro (th = 0.0):  0.6476885711723936
-# F1 micro:  0.7466047591410332
+# Thresholds:  [-0.27631527 -0.31156957 -0.61893745 -1.01863398 -0.3141709  -0.14000374
+#  -0.6285302  -0.43241383 -1.60594984 -0.14425374 -0.03979607 -0.25717957
+#  -0.84905692 -0.37668712  1.3710663  -0.11193908 -0.81109447  0.72506607
+#  -0.05454339 -0.47056617 -0.16024197 -0.44002794 -0.65929407 -1.00900269
+#  -0.86197429 -0.12346229 -0.4946575  -0.52420557]
+# F1 macro:  0.8474219916912414
+# F1 macro (th = 0.0):  0.8318519970045825
+# F1 micro:  0.8728054927863723
+
+
+# thresholds = [-0.13432257, -0.4642075, -0.50726506, -0.49715518, -0.41125674, 0.11581507,
+#               -1.0143597, -0.18461785, -0.61600877, -0.47275479, -0.9142859, -0.44323673,
+#               -0.58404387, -0.22959213, -0.26110631, -0.43723898, -0.97624685, -0.44612319,
+#               -0.4492785, -0.56681327, -0.16156543, -0.12577745, -0.75476121, -0.91473052,
+#               -0.53361931, -0.19337344, -0.0857145, -0.45739976]
+
+f1 = f1_score(y, preds>th, average=None)
+for i in range(len(name_label_dict)):
+    bins = np.linspace(preds[:,i].min(), preds[:,i].max(), 50)
+    plt.hist(preds[y[:,i] == 0][:,i], bins, alpha=0.5, log=True, label='false')
+    plt.hist(preds[y[:,i] == 1][:,i], bins, alpha=0.5, log=True, label='true')
+    plt.legend(loc='upper right')
+    print(name_label_dict[i],i, f1[i], th[i])
+    plt.axvline(x=th[i], color='k', linestyle='--')
+    plt.show()
+
