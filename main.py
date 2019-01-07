@@ -323,7 +323,7 @@ def main():
             # ================================================================== #
             # early_stopping needs the validation loss to check if it has decresed,
             # and if it has, it will make a checkpoint of the current model
-            early_stopping(val_metrics[0], model)
+            early_stopping(val_metrics[1], model)
 
             if early_stopping.early_stop:
                 print("Early stopping")
