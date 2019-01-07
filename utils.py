@@ -37,7 +37,10 @@ class EarlyStopping:
 
     def __call__(self, val_loss, model):
 
-        score = -val_loss
+        # score = -val_loss
+        
+        # this is for f1_score
+        score = val_loss
 
         if self.best_score is None:
             self.best_score = score
@@ -50,6 +53,8 @@ class EarlyStopping:
             self.best_score = score
             self.update_loss_min(val_loss, model)
             self.counter = 0
+
+
 
     def update_loss_min(self, val_loss, model):
         '''Saves model when validation loss decrease.'''
