@@ -38,7 +38,7 @@ class EarlyStopping:
     def __call__(self, val_loss, model):
 
         # score = -val_loss
-        
+
         # this is for f1_score
         score = val_loss
 
