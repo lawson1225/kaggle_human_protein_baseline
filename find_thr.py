@@ -6,7 +6,7 @@ from utils import *
 from data import HumanDataset
 # from common import *
 from kaggle_human_protein_baseline.model import*
-
+from sklearn.model_selection import train_test_split
 
 import argparse
 #-----------------------------------------------
@@ -164,19 +164,52 @@ if __name__ == '__main__':
     model.load_state_dict(best_model["state_dict"])
 
 
-    preds,y = validate(train_loader,model)
+    preds,y = validate(val_loader,model)
     preds = preds.cpu()
+    preds = np.array(preds)
     y = y.cpu()
     y = np.array(y)
 
-    preds = np.stack(preds, axis=-1)
-    pred = preds.mean(axis=-1)
+    # preds = np.stack(preds, axis=-1)
+    # pred = preds.mean(axis=-1)
 
 
 
-    th = fit_val(pred,y)
+    th = fit_val(preds,y)
     print('Thresholds: ',th)
-    print('F1 macro: ',f1_score(y, pred>th, average='macro'))
-    print('F1 macro (th = 0.0): ',f1_score(y, pred>0.0, average='macro'))
-    print('F1 micro: ',f1_score(y, pred>th, average='micro'))
+    print('F1 macro: ',f1_score(y, preds>th, average='macro'))
+    print('F1 macro (th = 0.0): ',f1_score(y, preds>0.0, average='macro'))
+    print('F1 micro: ',f1_score(y, preds>th, average='micro'))
 
+# Thresholds:  [-0.79494995 -0.08028803 -0.06839066 -0.54636391  0.39274047 -0.06704237
+#  -0.8016432  -0.46357643  0.43253807 -0.84245714 -2.84211516 -0.27193429
+#   0.13533374 -0.16440481 -0.1186454   0.          0.15110027 -0.18069459
+#  -0.4793194  -0.50146258 -0.2156128  -0.31305433 -1.46252153 -1.41710544
+#  -0.34938362 -0.13460358  0.07340712  0.        ]
+# F1 macro:  0.6668250095431967
+# F1 macro (th = 0.0):  0.6476885711723936
+# F1 micro:  0.7466047591410332
+
+
+
+# Using CV to prevent overfitting the thresholds:
+th, score, cv = 0,0,10
+for i in range(cv):
+    xt,xv,yt,yv = train_test_split(preds,y,test_size=0.5,random_state=i)
+    th_i = fit_val(xt,yt)
+    th += th_i
+    score += f1_score(yv, xv>th_i, average='macro')
+th/=cv
+score/=cv
+print('Thresholds: ',th)
+print('F1 macro avr:',score)
+print('F1 macro: ',f1_score(y, preds>th, average='macro'))
+print('F1 micro: ',f1_score(y, preds>th, average='micro'))
+# Thresholds:  [-0.79494995 -0.08028803 -0.06839066 -0.54636391  0.39274047 -0.06704237
+#  -0.8016432  -0.46357643  0.43253807 -0.84245714 -2.84211516 -0.27193429
+#   0.13533374 -0.16440481 -0.1186454   0.          0.15110027 -0.18069459
+#  -0.4793194  -0.50146258 -0.2156128  -0.31305433 -1.46252153 -1.41710544
+#  -0.34938362 -0.13460358  0.07340712  0.        ]
+# F1 macro:  0.6668250095431967
+# F1 macro (th = 0.0):  0.6476885711723936
+# F1 micro:  0.7466047591410332
