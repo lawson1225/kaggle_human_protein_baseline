@@ -1,4 +1,4 @@
-from common import *
+# from common import *
 from data import HumanDataset
 from kaggle_human_protein_baseline.model import*
 

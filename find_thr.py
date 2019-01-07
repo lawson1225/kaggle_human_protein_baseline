@@ -4,7 +4,7 @@ import pandas as pd
 import os
 from utils import *
 from data import HumanDataset
-from common import *
+# from common import *
 from kaggle_human_protein_baseline.model import*
 
 
