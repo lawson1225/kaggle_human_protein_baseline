@@ -164,7 +164,7 @@ if __name__ == '__main__':
     model.load_state_dict(best_model["state_dict"])
 
 
-    preds,y = validate(val_loader,model)
+    preds,y = validate(train_loader,model)
     preds = preds.cpu()
     preds = np.array(preds)
     y = y.cpu()
