@@ -18,7 +18,8 @@ import PIL
 import cv2
 import matplotlib
 import skimage
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
+
 #matplotlib.use('WXAgg')
 #matplotlib.use('Qt4Agg')
 #matplotlib.use('Qt5Agg') #Qt4Agg
