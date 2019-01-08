@@ -1,7 +1,9 @@
 # from common import *
 from data import HumanDataset
 from kaggle_human_protein_baseline.model import*
-
+import torchvision
+import torchvision.transforms.functional as f
+from torchvision import transforms as T
 
 import argparse
 #-----------------------------------------------
@@ -145,33 +147,66 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,best_results,start, thr
 def test(test_loader,model,thresholds):
     sample_submission_df = pd.read_csv("./input/sample_submission.csv")
     #3.1 confirm the model converted to cuda
-    filenames,labels ,submissions= [],[],[]
+    filenames, labels, submissions= [],[],[]
     model.cuda()
     model.eval()
     submit_results = []
-    for i,(input,filepath) in enumerate(tqdm(test_loader)):
-        #3.2 change everything to cuda and get only basename
-        filepath = [os.path.basename(x) for x in filepath]
-        with torch.no_grad():
-            image_var = input.cuda(non_blocking=True)
-            y_pred = model(image_var)
-            # label = y_pred.sigmoid().cpu().data.numpy()
-            label = y_pred.cpu().data.numpy()
-            #print(label > 0.5)
-           
-            # labels.append(label > config.threshold)
-            labels.append(label > thresholds)
-            filenames.append(filepath)
 
-    for row in np.concatenate(labels):
+    def apply_transform(iter, loader):
+        predictions = []
+        for i, (input, filepaths) in enumerate(tqdm(loader)):
+            # 3.2 change everything to cuda and get only basename
+            filepaths = [os.path.basename(x) for x in filepaths]
+            input = T.Compose([T.ToPILImage()])(input.squeeze())
+
+            if iter < 4:#rotate
+                input = f.rotate(input, 90*(iter+1))
+            elif iter ==4: #hflip
+                input = f.hflip(input)
+            elif iter ==5: #vflip
+                input = f.vflip(input)
+            elif iter ==6: #resize 1.1
+                input = f.affine(input, angle=0, translate=(0,0), shear=0,scale=1.1)
+            elif iter ==7: #resize 1/1.1
+                input = f.affine(input, angle=0, translate=(0,0), shear=0, scale=1/1.1)
+            elif iter == 8:  # translate
+                input = f.affine(input, angle=0, translate=(20,20), shear=0, scale=1)
+            elif iter == 9:  # translate
+                input = f.affine(input, angle=0, translate=(-20,-20), shear=0, scale=1)
+
+            with torch.no_grad():
+                input = f.to_tensor(input)
+                input = input.unsqueeze(0)
+                image_var = input.cuda(non_blocking=True)
+                y_preds = model(image_var)
+                # label = y_pred.sigmoid().cpu().data.numpy()
+                y_preds = y_preds.cpu().data.numpy()
+
+                for y_pred, filepath in zip(y_preds, filepaths):
+                    predictions.append(y_pred)
+                    if iter==0:
+                        filenames.append(filepath)
+
+        # predictions = np.array(predictions)
+        return predictions
+
+    results = []
+
+    for i in range(10):
+        print('TTA {}'.format(i))
+        r = apply_transform(i,test_loader)
+        results.append(r)
+
+    results = np.array(results)
+    results = results.mean(axis=0)
+
+
+    for result in results:
+        row = result > thresholds
         subrow = ' '.join(list([str(i) for i in np.nonzero(row)[0]]))
         submissions.append(subrow)
     sample_submission_df['Predicted'] = submissions
-
-    # https://www.kaggle.com/c/human-protein-atlas-image-classification/discussion/69366#409041
-    # sample_submission_df = sample_submission_df.sort_index()
-
-    sample_submission_df.to_csv('./results/submit/%s_bestloss_submission.csv'%config.model_name, index=None)
+    sample_submission_df.to_csv('./results/submit/%s_submission.csv' % config.model_name, index=None)
 
 # 4. main function
 def main():
@@ -346,17 +381,17 @@ def main():
         best_model = torch.load(checkpoint_path)
         #best_model = torch.load("checkpoints/bninception_bcelog/0/checkpoint.pth.tar")
         model.load_state_dict(best_model["state_dict"])
-        # thresholds =[-0.13432257, -0.4642075,  -0.50726506, -0.49715518, -0.41125674,  0.11581507,
-        #              -1.0143597,  -0.18461785, -0.61600877, -0.47275479, -0.9142859,  -0.44323673,
-        #              -0.58404387, -0.22959213, -0.26110631, -0.43723898, -0.97624685, -0.44612319,
-        #              -0.4492785,  -0.56681327, -0.16156543, -0.12577745, -0.75476121, -0.91473052,
-        #               -0.53361931, -0.19337344, -0.0857145,  -0.45739976]
+        thresholds =[-0.13432257, -0.4642075,  -0.50726506, -0.49715518, -0.41125674,  0.11581507,
+                     -1.0143597,  -0.18461785, -0.61600877, -0.47275479, -0.9142859,  -0.44323673,
+                     -0.58404387, -0.22959213, -0.26110631, -0.43723898, -0.97624685, -0.44612319,
+                     -0.4492785,  -0.56681327, -0.16156543, -0.12577745, -0.75476121, -0.91473052,
+                      -0.53361931, -0.19337344, -0.0857145,  -0.45739976]
 
-        thresholds = [-0.27631527, -0.31156957, -0.61893745, -1.01863398, -0.3141709,  -0.14000374,
-                      -0.6285302,  -0.43241383, -1.60594984, -0.14425374, -0.03979607, -0.25717957,
-                      -0.84905692, -0.37668712,  1.3710663,  -0.11193908, -0.81109447,  0.72506607,
-                      -0.05454339, -0.47056617, -0.16024197, -0.44002794, -0.65929407, -1.00900269,
-                      -0.86197429, -0.12346229, -0.4946575,  -0.52420557]
+        # thresholds = [-0.27631527, -0.31156957, -0.61893745, -1.01863398, -0.3141709,  -0.14000374,
+        #               -0.6285302,  -0.43241383, -1.60594984, -0.14425374, -0.03979607, -0.25717957,
+        #               -0.84905692, -0.37668712,  1.3710663,  -0.11193908, -0.81109447,  0.72506607,
+        #               -0.05454339, -0.47056617, -0.16024197, -0.44002794, -0.65929407, -1.00900269,
+        #               -0.86197429, -0.12346229, -0.4946575,  -0.52420557]
         test(test_loader,model,thresholds)
         print('Test successful!')
 if __name__ == "__main__":

@@ -39,6 +39,7 @@ class HumanDataset(Dataset):
             y = str(self.images_df.iloc[index].Id.absolute())
         if self.augument:
             X = self.augumentor(X)
+
         #X = T.Compose([T.ToPILImage(),T.ToTensor(),T.Normalize([0.08069, 0.05258, 0.05487, 0.08282], [0.13704, 0.10145, 0.15313, 0.13814])])(X)
         X = T.Compose([T.ToPILImage(),T.ToTensor()])(X)
         return X.float(),y
@@ -82,3 +83,7 @@ class HumanDataset(Dataset):
         
         image_aug = augment_img.augment_image(image)
         return image_aug
+
+
+
+
