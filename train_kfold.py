@@ -226,47 +226,48 @@ def main():
     if not os.path.exists(config.logs):
         os.mkdir(config.logs)
 
-    # 4.2 get model
-    model = get_net()
-    model.cuda()
+    all_files = pd.read_csv("./input/train.csv")
+
 
     # -------------------------------------------------------
     # training
     # -------------------------------------------------------
     if config.mode == 'train':
-        optimizer = optim.Adam(model.parameters(), lr=config.lr)
 
-        # ================================================================== #
-        #                        Loss criterioin                             #
-        # ================================================================== #
-        # criterion
-        # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
-
-        # Use the optim package to define an Optimizer that will update the weights of
-        # the model for us. Here we will use Adam; the optim package contains many other
-        # optimization algoriths. The first argument to the Adam constructor tells the
-        # optimizer which Tensors it should update.
-        assert config.loss in ['bcelog', 'f1_loss', 'focal_loss'], \
-            print("Loss type {0} is unknown".format(config.loss))
-        if config.loss == 'bcelog':
-            criterion = nn.BCEWithLogitsLoss().cuda()
-        elif config.loss == 'f1_loss':
-            criterion = F1_loss().cuda()
-        elif config.loss == 'focal_loss':
-            criterion = FocalLoss().cuda()
-
-        # best_loss = 999
-        # best_f1 = 0
-        best_results = [np.inf, 0]
-        val_metrics = [np.inf, 0]
-
-        all_files = pd.read_csv("./input/train.csv")
-        # print(all_files)
-        # train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
-
-        # using a split that includes all classes in val
-        ## k-fold
         for fold in range(config.fold):
+
+            # 4.2 get model
+            model = get_net()
+            model.cuda()
+
+            optimizer = optim.Adam(model.parameters(), lr=config.lr)
+
+            # ================================================================== #
+            #                        Loss criterioin                             #
+            # ================================================================== #
+            # criterion
+            # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
+
+            # Use the optim package to define an Optimizer that will update the weights of
+            # the model for us. Here we will use Adam; the optim package contains many other
+            # optimization algoriths. The first argument to the Adam constructor tells the
+            # optimizer which Tensors it should update.
+            assert config.loss in ['bcelog', 'f1_loss', 'focal_loss'], \
+                print("Loss type {0} is unknown".format(config.loss))
+            if config.loss == 'bcelog':
+                criterion = nn.BCEWithLogitsLoss().cuda()
+            elif config.loss == 'f1_loss':
+                criterion = F1_loss().cuda()
+            elif config.loss == 'focal_loss':
+                criterion = FocalLoss().cuda()
+
+            # best_loss = 999
+            # best_f1 = 0
+            best_results = [np.inf, 0]
+            val_metrics = [np.inf, 0]
+
+            ## k-fold--------------------------------
+
             # tflogger
             tflogger = TFLogger(os.path.join('results', 'TFlogs',
                                              config.model_name+"_fold{0}_{1}".format(config.fold, fold)))
