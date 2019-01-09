@@ -338,7 +338,7 @@ def main():
                     "fold": config.fold,
                     "kfold": fold,
                     "best_f1": best_results[1],
-                }, is_best_loss, is_best_f1, fold)
+                }, is_best_loss, is_best_f1, config.fold, fold)
                 # print logs
                 print('\r', end='', flush=True)
 
