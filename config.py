@@ -23,5 +23,6 @@ class DefaultConfigs(object):
     threshold=0.3
     checkpoint = 0
     loss="bcelog"
+    fold=0
 
 config = DefaultConfigs()

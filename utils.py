@@ -65,14 +65,15 @@ class EarlyStopping:
 
 
 # save best model
-def save_checkpoint(state, is_best_loss,is_best_f1,fold):
-    filename = '{0}{1}/fold_{2}/checkpoint_{3}.pth.tar'.format(config.weights, config.model_name, str(fold), state['epoch'])
+def save_checkpoint(state, is_best_loss,is_best_f1,fold, kfold):
+    filename = '{0}{1}/fold_{2}/checkpoint_{3}_fold{4}.pth.tar'.format(
+        config.weights, config.model_name, str(fold), state['epoch'], kfold)
     # filename = config.weights + config.model_name + os.sep +str(fold) + os.sep + "checkpoint.pth.tar"
     torch.save(state, filename)
-    if is_best_loss:
-        shutil.copyfile(filename,"%s/%s_fold_%s_model_best_loss.pth.tar"%(config.best_models,config.model_name,str(fold)))
-    if is_best_f1:
-        shutil.copyfile(filename,"%s/%s_fold_%s_model_best_f1.pth.tar"%(config.best_models,config.model_name,str(fold)))
+    # if is_best_loss:
+    #     shutil.copyfile(filename,"%s/%s_fold_%s_model_best_loss.pth.tar"%(config.best_models,config.model_name,str(fold)))
+    # if is_best_f1:
+    #     shutil.copyfile(filename,"%s/%s_fold_%s_model_best_f1.pth.tar"%(config.best_models,config.model_name,str(fold)))
 
 # evaluate meters
 class AverageMeter(object):
