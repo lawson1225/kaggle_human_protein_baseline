@@ -192,7 +192,7 @@ def test(test_loader,model,thresholds):
 
     results = []
 
-    for i in range(10):
+    for i in range(6):
         print('TTA {}'.format(i))
         r = apply_transform(i,test_loader)
         results.append(r)
