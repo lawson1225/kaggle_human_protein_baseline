@@ -30,6 +30,10 @@ parser.add_argument("--LOSS", help="LOSS CRITERION",
                     default="bcelog", type=str)
 parser.add_argument("--IMG_HEIGHT", help="SIZE OF IMAGE",
                     default=512, type=int)
+parser.add_argument("--FOLD", help="KFOLD",
+                    default=0, type=int)
+parser.add_argument("--CHANNELS", help="NUMBUER OF CHANNELS",
+                    default=3, type=int)
 
 args = parser.parse_args()
 
@@ -43,6 +47,8 @@ config.lr = args.LR
 config.checkpoint = args.CHECKPOINT
 config.loss = args.LOSS
 config.img_height = args.IMG_HEIGHT
+config.fold = args.FOLD
+config.channels = args.CHANNELS
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
@@ -65,9 +71,6 @@ log.write("\n-------------------- [START %s] %s\n\n" % (datetime.now().strftime(
 log.write('                          |------ Train ------|------ Valid ------|----Best Results---|------------|\n')
 log.write('mode    iter   epoch    lr|  loss    f1_macro |  loss    f1_macro |  loss    f1_macro | time       |\n')
 log.write('----------------------------------------------------------------------------------------------------\n')
-
-# tflogger
-tflogger = TFLogger(os.path.join('results','TFlogs', config.model_name))
 
 def train(train_loader,model,criterion,optimizer,epoch,valid_loss,best_results,start, threshold=0.3):
     losses = AverageMeter()
@@ -211,160 +214,196 @@ def test(test_loader,model,thresholds):
 # 4. main function
 def main():
 
-    fold = 0
     # 4.1 mkdirs
     if not os.path.exists(config.submit):
         os.makedirs(config.submit)
-    if not os.path.exists(config.weights + config.model_name + os.sep + 'fold_'+str(fold)):
-        os.makedirs(config.weights + config.model_name + os.sep + 'fold_'+ str(fold))
+    if not os.path.exists(config.weights + config.model_name + os.sep + 'fold_'+str(config.fold)):
+        os.makedirs(config.weights + config.model_name + os.sep + 'fold_'+ str(config.fold))
     if not os.path.exists(config.best_models):
         os.mkdir(config.best_models)
     if not os.path.exists(config.logs):
         os.mkdir(config.logs)
 
-    # 4.2 get model
-    model = get_net()
-    model.cuda()
-
     # -------------------------------------------------------
     # training
     # -------------------------------------------------------
     if config.mode == 'train':
-        optimizer = optim.Adam(model.parameters(), lr = config.lr)
-
-        # ================================================================== #
-        #                        Loss criterioin                             #
-        # ================================================================== #
-        # criterion
-        # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
-
-        # Use the optim package to define an Optimizer that will update the weights of
-        # the model for us. Here we will use Adam; the optim package contains many other
-        # optimization algoriths. The first argument to the Adam constructor tells the
-        # optimizer which Tensors it should update.
-        assert config.loss in ['bcelog', 'f1_loss', 'focal_loss'], \
-            print("Loss type {0} is unknown".format(config.loss))
-        if config.loss == 'bcelog':
-            criterion = nn.BCEWithLogitsLoss().cuda()
-        elif config.loss == 'f1_loss':
-            criterion = F1_loss().cuda()
-        elif config.loss == 'focal_loss':
-            criterion = FocalLoss().cuda()
-
-        # best_loss = 999
-        # best_f1 = 0
-        best_results = [np.inf,0]
-        val_metrics = [np.inf,0]
-
         all_files = pd.read_csv("./input/train.csv")
-        #print(all_files)
-        # train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
+        # oversample
+        s = Oversampling("./input/train.csv")
+        sample_names = all_files['Id']
+        sample_names = [idx for idx in sample_names for _ in range(s.get(idx))]
+        all_files = all_files.copy().set_index('Id')
+        all_files = all_files.reindex(sample_names)
+        all_files = all_files.rename_axis('Id').reset_index()
 
-        # using a split that includes all classes in val
-        with open(os.path.join("./input/protein-trainval-split", 'tr_names.txt'), 'r') as text_file:
-            train_names =  text_file.read().split(',')
-            # oversample
-            s = Oversampling("./input/train.csv")
-            train_names = [idx for idx in train_names for _ in range(s.get(idx))]
-            # train_data_list = all_files[all_files['Id'].isin(train_names)]
-            train_data_list = all_files.copy().set_index('Id')
-            # train_data_list
-            train_data_list = train_data_list.reindex(train_names)
-            #57150 -> 29016
-            #reset index
-            train_data_list = train_data_list.rename_axis('Id').reset_index()
-        with open(os.path.join("./input/protein-trainval-split", 'val_names.txt'), 'r') as text_file:
-            val_names =  text_file.read().split(',')
-            val_data_list = all_files[all_files['Id'].isin(val_names)]
+        for fold in range(config.fold):
+            # 4.2 get model
+            # model = get_net()
+            model = get_net_resnet18()
+            model.cuda()
 
-        # load dataset
-        train_gen = HumanDataset(train_data_list,config.train_data,mode="train")
-        train_loader = DataLoader(train_gen,batch_size=config.batch_size,shuffle=True,pin_memory=True,num_workers=4)
+            optimizer = optim.Adam(model.parameters(), lr = config.lr)
 
-        val_gen = HumanDataset(val_data_list,config.train_data,augument=False,mode="train")
-        val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=4)
+            # ================================================================== #
+            #                        Loss criterioin                             #
+            # ================================================================== #
+            # criterion
+            # optimizer = optim.SGD(model.parameters(),lr = config.lr,momentum=0.9,weight_decay=1e-4)
 
-        # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=7, verbose=True)
+            # Use the optim package to define an Optimizer that will update the weights of
+            # the model for us. Here we will use Adam; the optim package contains many other
+            # optimization algoriths. The first argument to the Adam constructor tells the
+            # optimizer which Tensors it should update.
+            assert config.loss in ['bcelog', 'f1_loss', 'focal_loss'], \
+                print("Loss type {0} is unknown".format(config.loss))
+            if config.loss == 'bcelog':
+                criterion = nn.BCEWithLogitsLoss().cuda()
+            elif config.loss == 'f1_loss':
+                criterion = F1_loss().cuda()
+            elif config.loss == 'focal_loss':
+                criterion = FocalLoss().cuda()
 
-        if config.resume:
-            log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
-            checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
-            loaded_model = torch.load(checkpoint_path)
-            model.load_state_dict(loaded_model["state_dict"])
-            start_epoch = loaded_model["epoch"]
-        else:
-            start_epoch = 0
+            # best_loss = 999
+            # best_f1 = 0
+            best_results = [np.inf,0]
+            val_metrics = [np.inf,0]
 
-        scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.5)
-        start = timer()
+            ## k-fold--------------------------------
 
-        #train
-        for epoch in range(start_epoch,config.epochs):
-            scheduler.step(epoch)
-            # train
-            lr = get_learning_rate(optimizer)
-            train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start,config.threshold)
-            # val
-            val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start, config.threshold)
-            # check results
-            is_best_loss = val_metrics[0] < best_results[0]
-            best_results[0] = min(val_metrics[0],best_results[0])
-            is_best_f1 = val_metrics[1] > best_results[1]
-            best_results[1] = max(val_metrics[1],best_results[1])
-            # save model
-            save_checkpoint({
-                        "epoch":epoch + 1,
-                        "model_name":config.model_name,
-                        "state_dict":model.state_dict(),
-                        "best_loss":best_results[0],
-                        "optimizer":optimizer.state_dict(),
-                        "fold":fold,
-                        "best_f1":best_results[1],
-            },is_best_loss,is_best_f1,fold)
-            # print logs
-            print('\r',end='',flush=True)
+            # tflogger
+            tflogger = TFLogger(os.path.join('results', 'TFlogs',
+                                             config.model_name+"_fold{0}_{1}".format(config.fold, fold)))
 
-            log.write('%s  %5.1f %6.1f  %.2E|  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s' % (\
-                    "best", epoch, epoch, Decimal(lr),
-                    train_metrics[0], train_metrics[1],
-                    val_metrics[0], val_metrics[1],
-                    str(best_results[0])[:8],str(best_results[1])[:8],
-                    time_to_str((timer() - start),'min'))
+            with open(os.path.join("./input/fold_{0}".format(config.fold),
+                                   'train_fold{0}_{1}.txt'.format(config.fold, fold)), 'r') as text_file:
+                train_names = text_file.read().split('\n')
+                # # oversample
+                # s = Oversampling("./input/train.csv")
+                # train_names = [idx for idx in train_names for _ in range(s.get(idx))]
+                train_data_list = all_files[all_files['Id'].isin(train_names)]
+                # train_data_list = all_files.copy().set_index('Id')
+                # train_data_list
+                # train_data_list = train_data_list.reindex(train_names)
+                # 57150 -> 29016
+                # reset index
+                # train_data_list = train_data_list.rename_axis('Id').reset_index()
+            with open(os.path.join("./input/fold_{0}".format(config.fold),
+                                   'test_fold{0}_{1}.txt'.format(config.fold, fold)), 'r') as text_file:
+                val_names = text_file.read().split('\n')
+                val_data_list = all_files[all_files['Id'].isin(val_names)]
+
+            # #print(all_files)
+            # # train_data_list,val_data_list = train_test_split(all_files,test_size = 0.13,random_state = 2050)
+            #
+            # # using a split that includes all classes in val
+            # with open(os.path.join("./input/protein-trainval-split", 'tr_names.txt'), 'r') as text_file:
+            #     train_names =  text_file.read().split(',')
+            #     # oversample
+            #     s = Oversampling("./input/train.csv")
+            #     train_names = [idx for idx in train_names for _ in range(s.get(idx))]
+            #     # train_data_list = all_files[all_files['Id'].isin(train_names)]
+            #     train_data_list = all_files.copy().set_index('Id')
+            #     # train_data_list
+            #     train_data_list = train_data_list.reindex(train_names)
+            #     #57150 -> 29016
+            #     #reset index
+            #     train_data_list = train_data_list.rename_axis('Id').reset_index()
+            # with open(os.path.join("./input/protein-trainval-split", 'val_names.txt'), 'r') as text_file:
+            #     val_names =  text_file.read().split(',')
+            #     val_data_list = all_files[all_files['Id'].isin(val_names)]
+
+            # load dataset
+            train_gen = HumanDataset(train_data_list,config.train_data,mode="train")
+            train_loader = DataLoader(train_gen,batch_size=config.batch_size,shuffle=True,pin_memory=True,num_workers=4)
+
+            val_gen = HumanDataset(val_data_list,config.train_data,augument=False,mode="train")
+            val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=4)
+
+            # initialize the early_stopping object
+            early_stopping = EarlyStopping(patience=7, verbose=True)
+
+            if config.resume:
+                log.write('\tinitial_checkpoint = %s\n' % config.initial_checkpoint)
+                checkpoint_path = os.path.join(config.weights, config.model_name, config.initial_checkpoint,'checkpoint.pth.tar')
+                loaded_model = torch.load(checkpoint_path)
+                model.load_state_dict(loaded_model["state_dict"])
+                start_epoch = loaded_model["epoch"]
+            else:
+                start_epoch = 0
+
+            scheduler = lr_scheduler.StepLR(optimizer,step_size=10,gamma=0.5)
+            start = timer()
+
+            #train
+            for epoch in range(start_epoch,config.epochs):
+                scheduler.step(epoch)
+                # train
+                lr = get_learning_rate(optimizer)
+                train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,best_results,start,config.threshold)
+                # val
+                val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,best_results,start, config.threshold)
+                # check results
+                is_best_loss = val_metrics[0] < best_results[0]
+                best_results[0] = min(val_metrics[0],best_results[0])
+                is_best_f1 = val_metrics[1] > best_results[1]
+                best_results[1] = max(val_metrics[1],best_results[1])
+                # save model
+                save_checkpoint({
+                    "epoch": epoch + 1,
+                    "model_name": config.model_name,
+                    "state_dict": model.state_dict(),
+                    "best_loss": best_results[0],
+                    "optimizer": optimizer.state_dict(),
+                    "fold": config.fold,
+                    "kfold": fold,
+                    "best_f1": best_results[1],
+                }, is_best_loss, is_best_f1, config.fold, fold)
+                # print logs
+                print('\r',end='',flush=True)
+
+                log.write(
+                    '%s  %5.1f %6.1f  %.2E|  %0.3f   %0.3f    |   %0.3f    %0.4f   |  %s      %s       | %s      |%s ' % ( \
+                        "best", epoch, epoch, Decimal(lr),
+                        train_metrics[0], train_metrics[1],
+                        val_metrics[0], val_metrics[1],
+                        str(best_results[0])[:8], str(best_results[1])[:8],
+                        time_to_str((timer() - start), 'min'),
+                        fold),
                 )
-            log.write("\n")
-            time.sleep(0.01)
+                log.write("\n")
+                time.sleep(0.01)
 
-            # ================================================================== #
-            #                        Tensorboard Logging                         #
-            # ================================================================== #
+                # ================================================================== #
+                #                        Tensorboard Logging                         #
+                # ================================================================== #
 
-            # 1. Log scalar values (scalar summary)
-            info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
-                    'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1],
-                    'Learnging_rate': lr}
+                # 1. Log scalar values (scalar summary)
+                info = {'Train_loss': train_metrics[0], 'Train_F1_macro': train_metrics[1],
+                        'Valid_loss': val_metrics[0], 'Valid_F1_macro': val_metrics[1],
+                        'Learnging_rate': lr}
 
-            for tag, value in info.items():
-                tflogger.scalar_summary(tag, value, epoch)
+                for tag, value in info.items():
+                    tflogger.scalar_summary(tag, value, epoch)
 
-            # 2. Log values and gradients of the parameters (histogram summary)
-            for tag, value in model.named_parameters():
-                tag = tag.replace('.', '/')
-                tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
-                tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
-            # -------------------------------------
-            # end tflogger
+                # 2. Log values and gradients of the parameters (histogram summary)
+                for tag, value in model.named_parameters():
+                    tag = tag.replace('.', '/')
+                    tflogger.histo_summary(tag, value.data.cpu().numpy(), epoch)
+                    tflogger.histo_summary(tag + '/grad', value.grad.data.cpu().numpy(), epoch)
+                # -------------------------------------
+                # end tflogger
 
-            # ================================================================== #
-            #                        Early stopping                         #
-            # ================================================================== #
-            # early_stopping needs the validation loss to check if it has decresed,
-            # and if it has, it will make a checkpoint of the current model
-            early_stopping(val_metrics[1], model)
+                # ================================================================== #
+                #                        Early stopping                         #
+                # ================================================================== #
+                # early_stopping needs the validation loss to check if it has decresed,
+                # and if it has, it will make a checkpoint of the current model
+                early_stopping(val_metrics[0], model)
 
-            if early_stopping.early_stop:
-                print("Early stopping")
-                break
+                if early_stopping.early_stop:
+                    print("Early stopping")
+                    break
 
 
     # -------------------------------------------------------

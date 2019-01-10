@@ -1,5 +1,5 @@
 from torchvision import models
-# from pretrainedmodels.models import bninception
+from pretrainedmodels.models import resnet18
 from torch import nn
 from config import config
 from collections import OrderedDict
@@ -13,6 +13,18 @@ pretrained_settings = {
             # Was ported using python2 (may trigger warning)
             'url': 'http://data.lip6.fr/cadene/pretrainedmodels/bn_inception-52deb4733.pth',
             # 'url': 'http://yjxiong.me/others/bn_inception-9f5701afb96c8044.pth',
+            'input_space': 'BGR',
+            'input_size': [3, 224, 224],
+            'input_range': [0, 255],
+            'mean': [104, 117, 128],
+            'std': [1, 1, 1],
+            'num_classes': 1000
+        }
+    },
+
+    'renet18':{
+        'imagenet':{
+            'url':'https://download.pytorch.org/models/resnet18-5c106cde.pth',
             'input_space': 'BGR',
             'input_size': [3, 224, 224],
             'input_range': [0, 255],
@@ -523,3 +535,19 @@ def get_net():
                 nn.Linear(1024, config.num_classes),
             )
     return model
+
+
+def get_net_resnet18():
+    model = resnet18(pretrained='imagenet')
+    model.avgpool = nn.AdaptiveAvgPool2d(1)
+    model.conv1 = nn.Conv2d(config.channels, 64, kernel_size=7, stride=2, padding=3,
+                           bias=False)
+    model.last_linear = nn.Sequential(
+                nn.BatchNorm1d(512),
+                nn.Dropout(0.5),
+                nn.Linear(512, config.num_classes),
+            )
+    return model
+
+if __name__ == '__main__':
+    model = get_net_resnet18()

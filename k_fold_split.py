@@ -1,12 +1,23 @@
 from common import *
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 
 all_files = pd.read_csv("./input/train.csv")
+
+
+# oversample
+s = Oversampling("./input/train.csv")
+sample_names = all_files['Id']
+sample_names = [idx for idx in sample_names for _ in range(s.get(idx))]
+all_files = all_files.copy().set_index('Id')
+all_files = all_files.reindex(sample_names)
+all_files = all_files.rename_axis('Id').reset_index()
+
 all_names = np.array(all_files['Id'])
 all_targets = np.array(all_files['Target'])
 
-skf = KFold(n_splits=5, shuffle=True)
-skf.get_n_splits(all_files)
+# skf = KFold(n_splits=5, shuffle=True)
+skf = StratifiedKFold(n_splits=5, shuffle=True)
+skf.get_n_splits(all_files, all_targets)
 
 for f, (train_index, test_index) in enumerate(skf.split(all_files, all_targets)):
    print("TRAIN:", len(train_index), "TEST:", len(test_index))

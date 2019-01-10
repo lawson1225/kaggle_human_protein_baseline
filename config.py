@@ -24,5 +24,6 @@ class DefaultConfigs(object):
     checkpoint = 0
     loss="bcelog"
     fold=0
+    channels=3
 
 config = DefaultConfigs()

@@ -40,8 +40,8 @@ class HumanDataset(Dataset):
         if self.augument:
             X = self.augumentor(X)
 
-        #X = T.Compose([T.ToPILImage(),T.ToTensor(),T.Normalize([0.08069, 0.05258, 0.05487, 0.08282], [0.13704, 0.10145, 0.15313, 0.13814])])(X)
-        X = T.Compose([T.ToPILImage(),T.ToTensor()])(X)
+        X = T.Compose([T.ToPILImage(),T.ToTensor(),T.Normalize([0.08069, 0.05258, 0.05487], [0.13704, 0.10145, 0.15313])])(X)
+        # X = T.Compose([T.ToPILImage(),T.ToTensor()])(X)
         return X.float(),y
 
 
@@ -70,16 +70,23 @@ class HumanDataset(Dataset):
             return cv2.resize(images,(config.img_weight,config.img_height))
 
     def augumentor(self,image):
+
+        # Sometimes(0.5, ...) applies the given augmenter in 50% of all cases,
+        # e.g. Sometimes(0.5, GaussianBlur(0.3)) would blur roughly every second image.
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
         augment_img = iaa.Sequential([
-            iaa.OneOf([
-                iaa.Affine(rotate=90),
-                iaa.Affine(rotate=180),
-                iaa.Affine(rotate=270),
-                iaa.Affine(shear=(-16, 16)),
-                iaa.Fliplr(0.5),
-                iaa.Flipud(0.5),
-                
-            ])], random_order=True)
+            iaa.Fliplr(0.5),
+            iaa.Flipud(0.5),
+            sometimes(
+                iaa.OneOf([
+                    iaa.Affine(rotate=90),
+                    iaa.Affine(rotate=180),
+                    iaa.Affine(rotate=270),
+                    iaa.Affine(shear=(-16, 16)),
+                ])
+            )
+        ], random_order=True)
         
         image_aug = augment_img.augment_image(image)
         return image_aug
