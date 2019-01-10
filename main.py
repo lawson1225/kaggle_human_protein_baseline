@@ -34,6 +34,8 @@ parser.add_argument("--FOLD", help="KFOLD",
                     default=0, type=int)
 parser.add_argument("--CHANNELS", help="NUMBUER OF CHANNELS",
                     default=3, type=int)
+parser.add_argument("--MODEL", help="BASE MODEL",
+                    default="resnet34", type=str)
 
 args = parser.parse_args()
 
@@ -49,6 +51,7 @@ config.loss = args.LOSS
 config.img_height = args.IMG_HEIGHT
 config.fold = args.FOLD
 config.channels = args.CHANNELS
+config.model = args.MODEL
 
 # 1. set random seed
 os.environ["CUDA_VISIBLE_DEVICES"] = config.gpus
@@ -240,7 +243,11 @@ def main():
         for fold in range(config.fold):
             # 4.2 get model
             # model = get_net()
-            model = get_net_resnet18()
+            if config.model == "resnet18":
+                model = get_net_resnet18()
+            elif config.model == "resnet34":
+                model = get_net_resnet34()
+
             model.cuda()
 
             optimizer = optim.Adam(model.parameters(), lr = config.lr)

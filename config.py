@@ -25,5 +25,6 @@ class DefaultConfigs(object):
     loss="bcelog"
     fold=0
     channels=3
+    model='resnet34'
 
 config = DefaultConfigs()

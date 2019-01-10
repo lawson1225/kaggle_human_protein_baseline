@@ -1,5 +1,5 @@
 from torchvision import models
-from pretrainedmodels.models import resnet18
+from pretrainedmodels.models import resnet18, resnet34
 from torch import nn
 from config import config
 from collections import OrderedDict
@@ -549,5 +549,17 @@ def get_net_resnet18():
             )
     return model
 
+def get_net_resnet34():
+    model = resnet34(pretrained='imagenet')
+    model.avgpool = nn.AdaptiveAvgPool2d(1)
+    model.conv1 = nn.Conv2d(config.channels, 64, kernel_size=7, stride=2, padding=3,
+                           bias=False)
+    model.last_linear = nn.Sequential(
+                nn.BatchNorm1d(512),
+                nn.Dropout(0.5),
+                nn.Linear(512, config.num_classes),
+            )
+    return model
+
 if __name__ == '__main__':
-    model = get_net_resnet18()
+    model = get_net_resnet34()
